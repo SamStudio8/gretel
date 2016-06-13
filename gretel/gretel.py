@@ -1,11 +1,13 @@
-import vcf
-import pysam
-import numpy as np
 import sys
 from math import log,log10,exp
 import random
 
+import vcf
+import pysam
+import numpy as np
+
 from hansel import Hansel
+import util
 
 #TODO Look at some SNPs outside the gene...
 #TODO Reimplement SNP ladder generator with new matrix format
@@ -111,7 +113,7 @@ def process_bam(vcf_handler, bam_path, contig_name):
     read_support_mat = np.zeros( (5, 5, vcf_handler["N"]+2, vcf_handler["N"]+2) )
     hansel = Hansel(read_support_mat)
 
-    hansel.load_from_bam(bam, contig_name, vcf_handler)
+    util.load_from_bam(hansel, bam, contig_name, vcf_handler)
 
     return {
         "read_support": hansel,
