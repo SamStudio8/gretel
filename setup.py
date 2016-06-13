@@ -16,7 +16,7 @@ setuptools.setup(
     version="0.0.1a",
     url="https://github.com/samstudio8/gretel",
 
-    description="",
+    description="An algorithm for recovering potential haplotypes from metagenomes",
     long_description="",
 
     author="Sam Nicholls",
