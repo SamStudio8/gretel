@@ -1,6 +1,6 @@
 gretel
 ======
-An algorithm for recovering potential haplotypes from metagenomes
+A (work-in-progress) algorithm for recovering potential haplotypes from metagenomes
 
 Housekeeping
 ------------
