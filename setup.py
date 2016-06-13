@@ -5,6 +5,10 @@ import setuptools
 
 requirements = [
     "numpy",
+    "hanselx",
+    "pysam",
+    "PyVCF",
+    "matplotlib",
 ]
 
 test_requirements = [
@@ -31,6 +35,7 @@ setuptools.setup(
     install_requires=requirements,
 
     entry_points = {
+        "console_scripts": ["gretel=gretel.cmd:main"]
     },
 
     classifiers = [
