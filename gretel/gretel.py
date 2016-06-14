@@ -111,7 +111,7 @@ def process_bam(vcf_handler, bam_path, contig_name):
     # Could we optimise for lower triangle by collapsing one of the dimensions
     # such that Z[m][n][i][j] == Z[m][n][i + ((j-1)*(j))/2]
     read_support_mat = np.zeros( (5, 5, vcf_handler["N"]+2, vcf_handler["N"]+2) )
-    hansel = Hansel(read_support_mat)
+    hansel = Hansel(read_support_mat, ['A', 'C', 'G', 'T', 'N'])
 
     util.load_from_bam(hansel, bam, contig_name, vcf_handler)
 
