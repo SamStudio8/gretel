@@ -11,6 +11,8 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+   readme
+   changelog
 
 
 Indices and tables
