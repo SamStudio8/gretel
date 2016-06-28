@@ -216,17 +216,33 @@ def establish_path(n_snps, read_support_mat, original_read_support):
         # Get marginal and calculate branch probabilities for each available
         # mallele, given the current path seen so far
         # Select the next branch and append it to the path
-        next_m, next_v = read_support_mat.select_next_edge_at(snp, current_path, L=L)
+        curr_branches = read_support_mat.get_edge_weights_at(snp, current_path, L=L)
+        print "\t[TREE] %s" % curr_branches
+        # Return the symbol and probability of the next base to add to the
+        # current path based on the best marginal
+        next_v = 0.0
+        next_m = None
+
+        for symbol in curr_branches:
+            if symbol == "total":
+                continue
+            if next_m is None:
+                next_v = curr_branches[symbol]
+                next_m = symbol
+            elif curr_branches[symbol] > next_v:
+                next_v = curr_branches[symbol]
+                next_m = symbol
+
         if next_m == None:
             print "[FAIL] Unable to select next branch from %d to %d" % (snp-1, snp)
             return None, None, None
-            current_marg = read_support_mat.get_marginal_at(snp)
+            current_marg = read_support_mat.get_counts_at(snp)
             next_m = random.choice(['A', 'C', 'G', 'T'])
             false_marg_ratio = 1 / (1+current_marg["total"])
 
             marginals.append(false_marg_ratio)
             running_prob += log10(false_marg_ratio)
-            current_marg = original_read_support.get_marginal_at(snp)
+            current_marg = original_read_support.get_counts_at(snp)
             false_marg_ratio = 1 / (1+current_marg["total"])
             running_prob_uw += log10(false_marg_ratio)
 #TODO testing

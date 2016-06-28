@@ -49,7 +49,7 @@ def main():
     }
     print "i\tA\tC\tG\tT\tN"
     for i in range(0, VCF_h["N"]+1):
-        marginal = BAM_h["read_support"].get_marginal_at(i)
+        marginal = BAM_h["read_support"].get_counts_at(i)
         print "%d\t%d\t%d\t%d\t%d\t%d" % (
             i,
             marginal.get("A", 0),
@@ -123,24 +123,26 @@ def main():
                     "".join([str(int(n)) for n in full_confusion[i][at]]),
             )
 
-    fig, ax1 = plt.subplots()
+    fig, ax = plt.subplots(2,1,sharex=True)
     x_ax = range(0, len(PATHS))
+    ax[0].set_title("Gene Identity Recovery by Iteration")
     for i in range(0, len(REFS)):
-        ax1.plot(x_ax, con_mat[i], linewidth=2.0, color="black", alpha=0.3)
-    ax1.set_ylabel("Identity (%)")
-    plt.xlabel("Iteration (#)")
-    plt.title("Gene Identity Recovery by Iteration")
-    ax1.set_ylim(0, 100)
+        ax[0].plot(x_ax, con_mat[i], linewidth=2.0, alpha=0.75)
+    ax[0].set_ylabel("Identity (%)")
+    ax[0].set_ylim(0, 100)
+
+    # Add likelihood
+    #ax2 = ax1.twinx()
+    ax[1].plot(x_ax, PATH_PROBS, color="red", linewidth=3.0)
+    ax[1].plot(x_ax, PATH_PROBS_UW, color="green", linewidth=3.0)
+    ax[1].set_ylabel("Log(P)")
+    ax[1].set_title("Path Likelihood by Iteration")
+    ax[1].set_xlabel("Iteration (#)")
 
     # Add recoveries
     for r in RECOVERIES:
-        ax1.axvline(r, color='k', linestyle='--')
-
-    # Add likelihood
-    ax2 = ax1.twinx()
-    ax2.plot(x_ax, PATH_PROBS, color="red", linewidth=3.0)
-    ax2.plot(x_ax, PATH_PROBS_UW, color="green", linewidth=3.0)
-    ax2.set_ylabel("Log(P)")
+        ax[0].axvline(r, color='k', linestyle='--')
+        ax[1].axvline(r, color='k', linestyle='--')
     plt.show()
 
     """
