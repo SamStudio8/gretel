@@ -134,10 +134,10 @@ def confusion_matrix(PATHS, VCF_h, HITS, REFS, REF_NAMES, N):
                 for variant_id, variant in enumerate(path_variants[1:]):
                     full_confusion[ref_gene_id][path_id][variant_id] = 9
 
-                    # Translate the variant_id to 1-based position of the variant on the MASTER (the actual reference)
+                    # Translate the variant_id to 1-based position of the variant on the MASTER (pseudo-ref)
                     snp_pos_on_master = VCF_h["snp_rev"][variant_id]
 
-                    # Does the hit cover the reference as the variant?
+                    # Does the hit cover the reference at the variant?
                     if snp_pos_on_master < hit_record["ref_s"] or snp_pos_on_master > hit_record["ref_e"]:
                         continue
 
@@ -147,13 +147,29 @@ def confusion_matrix(PATHS, VCF_h, HITS, REFS, REF_NAMES, N):
                     position = snp_pos_on_master - 1
 
                     # ...add offset of subject start (-1 to convert from blast hit6 1-pos to 0-pos)
+                    #   The subject has some leader sequence that does not hit the
+                    #   query (reference), we ignore it by adding the sub_s offset.
+                    #
+                    #     >>>>>>>>>>>>>>|================================ REF(QRY)
+                    #     |============================================== HIT(SUB)
+                    #                   |
+                    #                   *sub_s (1-indexed start of hit on subject)
                     position += hit_record["sub_s"] - 1
 
                     # ...remove offset of reference start (-1 to convert from blast hit6 1-pos to 0-pos)
+                    #   The subject does not cover the entirity of the query (reference),
+                    #   positions of the subject therefore refer to earlier parts of
+                    #   the query, we adjust this by shifting positions backward...
+                    #
+                    #              *ref_s (1-indexed start of hit on query)
+                    #              |
+                    #     |============================================== REF(QRY)
+                    #     <<<<<<<<<|===================================== HIT(SUB)
                     position -= hit_record["ref_s"] - 1
 
                     print variant_id, snp_pos_on_master, position, ref_seq[position], variant, ref_seq[position] == variant
 
+                    # Does the variant at the reference site match the variant of the current path?
                     if ref_seq[position] == variant:
                         if variant != master_seq[snp_pos_on_master-1]:
                             mat_matrix[ref_gene_id][path_id][variant_id] = 1
