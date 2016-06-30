@@ -1,3 +1,4 @@
+import pysam
 
 def load_from_bam(hansel, bam, target_contig, vcf_handler):
     for read in bam.fetch(target_contig):
@@ -75,4 +76,5 @@ def load_from_bam(hansel, bam, target_contig, vcf_handler):
                 if (j+1) == vcf_handler["N"] and abs(i+rank-j) == 1:
                     hansel.add_observation(snp_b, 'N', vcf_handler["N"]-1+1, vcf_handler["N"]+1)
 
-
+def load_fasta(fa_path):
+    return pysam.FastaFile(fa_path)

@@ -20,11 +20,12 @@ def main():
 
     # Process hit table and FASTA reference (if provided)
     HITS = []
-    REFS = []
+    REFS = None
     REF_NAMES = []
     if ARGS.hit and ARGS.genes:
         HITS = gretel.process_hits(ARGS.hit)
-        REFS, REF_NAMES = gretel.process_refs(ARGS.genes)
+        REFS = gretel.process_refs(ARGS.genes)
+        REF_NAMES = list(REFS.references)
 
 
     VCF_h = gretel.process_vcf(ARGS.vcf, ARGS.contig, ARGS.start, ARGS.end)

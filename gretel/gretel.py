@@ -64,25 +64,7 @@ def process_hits(hit_tab):
 
 
 def process_refs(ref_fa):
-    REFERENCES = {}
-    with open(ref_fa) as fasta_fh:
-        current_seq = []
-        current_name = None
-        names = []
-        for line in fasta_fh:
-            line = line.strip()
-            if line.startswith(">"):
-                if current_name is not None:
-                    REFERENCES[current_name] = "".join(current_seq)
-
-                current_name = line
-                names.append(current_name)
-                current_seq = []
-            else:
-                current_seq.append(line)
-
-    REFERENCES[current_name] = "".join(current_seq)
-    return REFERENCES, names
+    return util.load_fasta(ref_fa)
 
 def process_vcf(vcf_path, contig_name, start_pos, end_pos):
     # Open the VCF
@@ -129,10 +111,8 @@ def confusion_matrix(PATHS, VCF_h, HITS, REFS, REF_NAMES, N):
     #snp_matrix = np.zeros( (len(PATHS), len(REFS), N+1) )
     full_confusion = np.zeros(( len(REFS), len(PATHS), N ))
 
-    master_fh = open("master.fa")
-    master_fh.readline()
-    master_seq = "".join([l.strip() for l in master_fh.readlines()])
-    master_fh.close()
+    master_fa = util.load_fasta("master.fa")
+    master_seq = master_fa.fetch(master_fa.references[0])
 
     # For each new path
     for pi, PATH in enumerate(PATHS):
@@ -147,7 +127,7 @@ def confusion_matrix(PATHS, VCF_h, HITS, REFS, REF_NAMES, N):
                     print "[TEST] PATH%d, %s with hit %s" % (pi, reference, str(hit))
                     # Get the corresponding part of the reference
                     #ref_ = REFS[reference][hit["ref_s"]-1:hit["ref_e"]]
-                    ref_ = REFS[reference]
+                    ref_ = REFS.fetch(reference)
 
                     # Get the corresponding part of the new path
                     # Check the corresponding SNPs of the new path against ref_
