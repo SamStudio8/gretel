@@ -5,6 +5,7 @@ History
 -----
 * Provide `util` subpackage for filling `Hansel` structure with BAM observations.
 * Explicitly provide possible symbols to `Hansel`.
+* Improve plotting
 
 0.0.1
 -----

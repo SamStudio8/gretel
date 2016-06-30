@@ -119,11 +119,11 @@ def main():
                     recovered,
                     at,
                     np.sum(master_mat[i][at]),
-                    PATH_PROBS_UW[i],
+                    PATH_PROBS_UW[at],
                     "".join([str(int(n)) for n in full_confusion[i][at]]),
             )
 
-    fig, ax = plt.subplots(2,1,sharex=True)
+    fig, ax = plt.subplots(3,1,sharex=True)
     x_ax = range(0, len(PATHS))
     ax[0].set_title("Gene Identity Recovery by Iteration")
     for i in range(0, len(REFS)):
@@ -131,13 +131,20 @@ def main():
     ax[0].set_ylabel("Identity (%)")
     ax[0].set_ylim(0, 100)
 
+    PATH_PROBS_RATIO = []
+    for i, p in enumerate(PATH_PROBS):
+        try:
+            PATH_PROBS_RATIO.append( PATH_PROBS[i] / PATH_PROBS_UW[i] )
+        except:
+            PATH_PROBS_RATIO.append(0)
     # Add likelihood
-    #ax2 = ax1.twinx()
     ax[1].plot(x_ax, PATH_PROBS, color="red", linewidth=3.0)
     ax[1].plot(x_ax, PATH_PROBS_UW, color="green", linewidth=3.0)
     ax[1].set_ylabel("Log(P)")
     ax[1].set_title("Path Likelihood by Iteration")
-    ax[1].set_xlabel("Iteration (#)")
+
+    ax[2].plot(x_ax, PATH_PROBS_RATIO, color="blue", linewidth=3.0)
+    ax[2].set_xlabel("Iteration (#)")
 
     # Add recoveries
     for r in RECOVERIES:
