@@ -150,6 +150,7 @@ def main():
     for r in RECOVERIES:
         ax[0].axvline(r, color='k', linestyle='--')
         ax[1].axvline(r, color='k', linestyle='--')
+        ax[2].axvline(r, color='k', linestyle='--')
     plt.show()
 
     """
