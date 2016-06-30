@@ -114,56 +114,58 @@ def confusion_matrix(PATHS, VCF_h, HITS, REFS, REF_NAMES, N):
     master_fa = util.load_fasta("master.fa")
     master_seq = master_fa.fetch(master_fa.references[0])
 
-    # For each new path
-    for pi, PATH in enumerate(PATHS):
+    if not (HITS and REFS):
+        print("Cannot call confusion_matrix without references to check against :<")
+        import sys; sys.exit(1)
 
-        # ...and that we have a hit table with references
-        if HITS and REFS:
+    for path_id, path_variants in enumerate(PATHS):
+        for ref_gene_id, ref_gene_name in enumerate(REF_NAMES):
 
-            # ... go over each reference available
-            for ri, reference in enumerate(REF_NAMES):
-                # ...and get each hit to that reference
-                for hit in [h for h in HITS if h["subject"] in reference]:
-                    print "[TEST] PATH%d, %s with hit %s" % (pi, reference, str(hit))
-                    # Get the corresponding part of the reference
-                    #ref_ = REFS[reference][hit["ref_s"]-1:hit["ref_e"]]
-                    ref_ = REFS.fetch(reference)
+            # Get the current input gene sequence
+            ref_seq = REFS.fetch(ref_gene_name)
 
-                    # Get the corresponding part of the new path
-                    # Check the corresponding SNPs of the new path against ref_
-                    for i, mallele in enumerate(PATH[1:]):
-                        full_confusion[ri][pi][i] = 9
+            for hit_record in [h for h in HITS if h["subject"] in ref_gene_name]:
+                # Test a path, against a hit for the current reference
+                # Typically there is just one hit for each reference, but this is not strictly true.
+                print "[TEST] PATH%d, %s with hit %s" % (path_id, ref_gene_name, str(hit_record))
 
-                        # Does the hit cover the reference at the SNP?
-                        snp_pos_on_master = VCF_h["snp_rev"][i]
-                        if snp_pos_on_master < hit["ref_s"] or snp_pos_on_master > hit["ref_e"]:
-                            continue
+                # Iterate over the current path and compare the malleles
+                # (Ignore the first variant of the path, it's the sentinel)
+                for variant_id, variant in enumerate(path_variants[1:]):
+                    full_confusion[ref_gene_id][path_id][variant_id] = 9
 
-                        #TODO should probably consider ARGS["REGION_START"]
-                        position = (hit["sub_s"]-1) + snp_pos_on_master-1 - (hit["ref_s"]-1)
+                    # Translate the variant_id to 1-based position of the variant on the MASTER (the actual reference)
+                    snp_pos_on_master = VCF_h["snp_rev"][variant_id]
 
-                        #print i, mallele, VCF_h["snp_rev"][i], ARGS["REGION_START"], hit["sub_s"]
-                        #position = VCF_h["snp_rev"][i]-ARGS["REGION_START"]+hit["sub_s"]-1
+                    # Does the hit cover the reference as the variant?
+                    if snp_pos_on_master < hit_record["ref_s"] or snp_pos_on_master > hit_record["ref_e"]:
+                        continue
 
-                        #if position <= len(ref_) and position >= hit["sub_s"]-1 and position <= hit["sub_e"]:
-                        #if position < len(ref_):
-                        print i, snp_pos_on_master, position, ref_[position], mallele, ref_[position] == mallele
+                    #TODO should probably consider ARGS["REGION_START"]
+                    # Translate 1-based MASTER position to 0-based (ref_seq string) based on hit_record:
+                    # ...convert MASTER position (1-indexed) to 0-indexed (ref string is python string)
+                    position = snp_pos_on_master - 1
 
-                        if ref_[position] == mallele:
-                            if mallele != master_seq[snp_pos_on_master-1]:
-                                mat_matrix[ri][pi][i] = 1
-                            CONFUSION[ri][pi] += 1
-                            full_confusion[ri][pi][i] = 1
-                            snp_matrix[ri][pi][i] = 100
-                            #snp_matrix[pi][ri][i] += 100
-                        else:
-                            full_confusion[ri][pi][i] = 0
-                        #snp_matrix[pi][ri][i] += 50
-                        SEEN[ri][pi] += 1
-            print CONFUSION
-            print "**"
-            print SEEN
-            print mat_matrix
+                    # ...add offset of subject start (-1 to convert from blast hit6 1-pos to 0-pos)
+                    position += hit_record["sub_s"] - 1
+
+                    # ...remove offset of reference start (-1 to convert from blast hit6 1-pos to 0-pos)
+                    position -= hit_record["ref_s"] - 1
+
+                    print variant_id, snp_pos_on_master, position, ref_seq[position], variant, ref_seq[position] == variant
+
+                    if ref_seq[position] == variant:
+                        if variant != master_seq[snp_pos_on_master-1]:
+                            mat_matrix[ref_gene_id][path_id][variant_id] = 1
+                        CONFUSION[ref_gene_id][path_id] += 1
+                        full_confusion[ref_gene_id][path_id][variant_id] = 1
+                        snp_matrix[ref_gene_id][path_id][variant_id] = 100
+                        #snp_matrix[pi][ri][i] += 100
+                    else:
+                        full_confusion[ref_gene_id][path_id][variant_id] = 0
+                    #snp_matrix[pi][ri][i] += 50
+                    SEEN[ref_gene_id][path_id] += 1
+
     return (CONFUSION / SEEN) * 100, snp_matrix, SEEN, mat_matrix, full_confusion
 
 ## PATH GENERATION ############################################################
