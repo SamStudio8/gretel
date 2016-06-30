@@ -8,17 +8,18 @@ def load_from_bam(hansel, bam, target_contig, vcf_handler):
             continue
 
         # Check there is any support
-        support_len = sum(vcf_handler["region"][read.pos+1: read.pos+read.qlen+1])
+        LEFTMOST_1pos = read.reference_start + 1 # Convert 0-based reference_start to 1-based position (to match region array and 1-based VCF)
+        support_len = sum(vcf_handler["region"][LEFTMOST_1pos: LEFTMOST_1pos+read.query_alignment_length])
         if support_len == 0:
             continue
 
-        rank = sum(vcf_handler["region"][0 : read.pos+1])
+        rank = sum(vcf_handler["region"][0 : LEFTMOST_1pos])
 
         support_seq = ""
         for i in range(0, support_len):
             offset = 0
             snp_rev = vcf_handler["snp_rev"][rank + i]
-            snp_pos_on_read = snp_rev - read.pos - 1
+            snp_pos_on_read = snp_rev - LEFTMOST_1pos
 
             bases_observed = 0          # Bases observed via CIGAR so far
             last_offsetting_op = 0      # Did we under or overshoot the target?
@@ -78,3 +79,4 @@ def load_from_bam(hansel, bam, target_contig, vcf_handler):
 
 def load_fasta(fa_path):
     return pysam.FastaFile(fa_path)
+

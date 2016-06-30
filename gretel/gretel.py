@@ -139,7 +139,6 @@ def confusion_matrix(PATHS, VCF_h, HITS, REFS, REF_NAMES, N):
                         if snp_pos_on_master < hit["ref_s"] or snp_pos_on_master > hit["ref_e"]:
                             continue
 
-
                         #TODO should probably consider ARGS["REGION_START"]
                         position = (hit["sub_s"]-1) + snp_pos_on_master-1 - (hit["ref_s"]-1)
 
