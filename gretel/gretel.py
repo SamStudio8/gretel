@@ -16,9 +16,6 @@ import util
 
 ## PROBABILITY ################################################################
 def add_ignore_support3(supports_mat, n_snps, path, ratio):
-    print "********** REWEIGHTING **********"
-    print path
-
     for i in range(0, n_snps+1):
         for j in range(0, i+1+1):
             # Reduce read supports
@@ -86,14 +83,14 @@ def process_vcf(vcf_path, contig_name, start_pos, end_pos):
         "region": region,
     }
 
-def process_bam(vcf_handler, bam_path, contig_name):
+def process_bam(vcf_handler, bam_path, contig_name, L):
     bam = pysam.AlignmentFile(bam_path)
 
     #NOTE(samstudio8)
     # Could we optimise for lower triangle by collapsing one of the dimensions
     # such that Z[m][n][i][j] == Z[m][n][i + ((j-1)*(j))/2]
-    read_support_mat = np.zeros( (5, 5, vcf_handler["N"]+2, vcf_handler["N"]+2) )
-    hansel = Hansel(read_support_mat, ['A', 'C', 'G', 'T', 'N'])
+    read_support_mat = np.zeros( (6, 6, vcf_handler["N"]+2, vcf_handler["N"]+2) )
+    hansel = Hansel(read_support_mat, ['A', 'C', 'G', 'T', 'N', "_"], ['N', "_"], L=L)
 
     util.load_from_bam(hansel, bam, contig_name, vcf_handler)
 
@@ -102,7 +99,7 @@ def process_bam(vcf_handler, bam_path, contig_name):
         "read_support_o": hansel.copy(),
     }
 
-def confusion_matrix(PATHS, VCF_h, HITS, REFS, REF_NAMES, N):
+def confusion_matrix(PATHS, VCF_h, HITS, REFS, REF_NAMES, N, master_path=None):
     #FIXME Kinda gross
     CONFUSION = np.zeros( (len(REFS), len(PATHS)) )
     SEEN = np.zeros( (len(REFS), len(PATHS)) )
@@ -111,12 +108,12 @@ def confusion_matrix(PATHS, VCF_h, HITS, REFS, REF_NAMES, N):
     #snp_matrix = np.zeros( (len(PATHS), len(REFS), N+1) )
     full_confusion = np.zeros(( len(REFS), len(PATHS), N ))
 
-    master_fa = util.load_fasta("master.fa")
-    master_seq = master_fa.fetch(master_fa.references[0])
+    if master_path:
+        master_fa = util.load_fasta(master_path)
+        master_seq = master_fa.fetch(master_fa.references[0])
 
     if not (HITS and REFS):
-        print("Cannot call confusion_matrix without references to check against :<")
-        import sys; sys.exit(1)
+        sys.stderr.write("Cannot call confusion_matrix without references to check against :<\n")
 
     for path_id, path_variants in enumerate(PATHS):
         for ref_gene_id, ref_gene_name in enumerate(REF_NAMES):
@@ -124,10 +121,10 @@ def confusion_matrix(PATHS, VCF_h, HITS, REFS, REF_NAMES, N):
             # Get the current input gene sequence
             ref_seq = REFS.fetch(ref_gene_name)
 
-            for hit_record in [h for h in HITS if h["subject"] in ref_gene_name]:
+            for hit_record in [h for h in HITS if h["subject"] == ref_gene_name]:
                 # Test a path, against a hit for the current reference
                 # Typically there is just one hit for each reference, but this is not strictly true.
-                print "[TEST] PATH%d, %s with hit %s" % (path_id, ref_gene_name, str(hit_record))
+                sys.stderr.write("[TEST] PATH%d, %s with hit %s\n" % (path_id, ref_gene_name, str(hit_record)))
 
                 # Iterate over the current path and compare the malleles
                 # (Ignore the first variant of the path, it's the sentinel)
@@ -167,12 +164,11 @@ def confusion_matrix(PATHS, VCF_h, HITS, REFS, REF_NAMES, N):
                     #     <<<<<<<<<|===================================== HIT(SUB)
                     position -= hit_record["ref_s"] - 1
 
-                    print variant_id, snp_pos_on_master, position, ref_seq[position], variant, ref_seq[position] == variant
-
                     # Does the variant at the reference site match the variant of the current path?
                     if ref_seq[position] == variant:
-                        if variant != master_seq[snp_pos_on_master-1]:
-                            mat_matrix[ref_gene_id][path_id][variant_id] = 1
+                        if master_path:
+                            if variant != master_seq[snp_pos_on_master-1]:
+                                mat_matrix[ref_gene_id][path_id][variant_id] = 1
                         CONFUSION[ref_gene_id][path_id] += 1
                         full_confusion[ref_gene_id][path_id][variant_id] = 1
                         snp_matrix[ref_gene_id][path_id][variant_id] = 100
@@ -205,16 +201,16 @@ def establish_path(n_snps, read_support_mat, original_read_support):
     L = 5
 
     # Find path
-    print "*** ESTABLISH ***"
+    sys.stderr.write("*** ESTABLISH ***\n")
     for snp in range(1, n_snps+1):
-        print "\t*** ***"
-        print "\t[SNP_] SNP %d" % snp
+        sys.stderr.write("\t*** ***\n")
+        sys.stderr.write("\t[SNP_] SNP %d\n" % snp)
 
         # Get marginal and calculate branch probabilities for each available
         # mallele, given the current path seen so far
         # Select the next branch and append it to the path
-        curr_branches = read_support_mat.get_edge_weights_at(snp, current_path, L=L)
-        print "\t[TREE] %s" % curr_branches
+        curr_branches = read_support_mat.get_edge_weights_at(snp, current_path)
+        sys.stderr.write("\t[TREE] %s\n" % curr_branches)
         # Return the symbol and probability of the next base to add to the
         # current path based on the best marginal
         next_v = 0.0
@@ -231,7 +227,7 @@ def establish_path(n_snps, read_support_mat, original_read_support):
                 next_m = symbol
 
         if next_m == None:
-            print "[FAIL] Unable to select next branch from %d to %d" % (snp-1, snp)
+            sys.stderr.write("[FAIL] Unable to select next branch from %d to %d\n" % (snp-1, snp))
             return None, None, None
             current_marg = read_support_mat.get_counts_at(snp)
             next_m = random.choice(['A', 'C', 'G', 'T'])
