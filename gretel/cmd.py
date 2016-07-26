@@ -51,28 +51,39 @@ def main():
         "G": [],
         "T": [],
         "N": [],
+        "_": [],
         "total": [],
     }
     if not ARGS.quiet:
-        print "i\tA\tC\tG\tT\tN"
+        print "i\tpos\tgap\tA\tC\tG\tT\tN\t_\ttot"
+        last_rev = 0
         for i in range(0, VCF_h["N"]+1):
             marginal = BAM_h["read_support"].get_counts_at(i)
-            print "%d\t%d\t%d\t%d\t%d\t%d" % (
+            snp_rev = 0
+            if i > 0:
+                snp_rev = VCF_h["snp_rev"][i-1]
+            print "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d" % (
                 i,
+                snp_rev,
+                snp_rev - last_rev,
                 marginal.get("A", 0),
                 marginal.get("C", 0),
                 marginal.get("G", 0),
                 marginal.get("T", 0),
                 marginal.get("N", 0),
+                marginal.get("_", 0),
+                marginal.get("total", 0),
             )
             all_marginals["A"].append(marginal.get("A", 0))
             all_marginals["C"].append(marginal.get("C", 0))
             all_marginals["G"].append(marginal.get("G", 0))
             all_marginals["T"].append(marginal.get("T", 0))
             all_marginals["N"].append(marginal.get("N", 0))
+            all_marginals["_"].append(marginal.get("_", 0))
             all_marginals["total"].append(
                 marginal.get("total", 0)
             )
+            last_rev = snp_rev
 
 
     # Make some genes
@@ -89,9 +100,9 @@ def main():
 
 
     # Make some pretty pictures
-    if not ARGS.quiet:
+    if ARGS.master:
         fasta_out_fh = open("out.fasta", "w")
-        master_fh = open("master.fa")
+        master_fh = open(ARGS.master)
         master_fh.readline()
         master_seq = "".join([l.strip() for l in master_fh.readlines()])
         master_fh.close()
@@ -109,91 +120,92 @@ def main():
         fasta_out_fh.close()
 
     #TODO None for ARGS
-    con_mat, snp_mat, seen_mat, master_mat, full_confusion = gretel.confusion_matrix(PATHS, VCF_h, HITS, REFS, REF_NAMES, VCF_h["N"], ARGS.master)
+    if HITS and REFS:
+        con_mat, snp_mat, seen_mat, master_mat, full_confusion = gretel.confusion_matrix(PATHS, VCF_h, HITS, REFS, REF_NAMES, VCF_h["N"], ARGS.master)
 
-    if not ARGS.quiet:
-        print "#\tname\tsites\trate\tbestit0\trefd\tlogl\tmap"
-    RECOVERIES = []
-    RECOV_PCTS = []
+        if not ARGS.quiet:
+            print "#\tname\tsites\trate\tbestit0\trefd\tlogl\tmap"
+        RECOVERIES = []
+        RECOV_PCTS = []
 
-    for i in range(0, len(con_mat)):
-        recovered = 0.0
-        at = None
-        for j in range(0, len(con_mat[i])):
-            if con_mat[i][j] > recovered:
-                recovered = con_mat[i][j]
-                at = j
-        if at != None:
-            RECOVERIES.append(at)
-            if not ARGS.quiet:
-                print "%d\t%s\t%d\t%.2f\t%d\t%d\t%.2f\t%s" % (
-                        i,
-                        REF_NAMES[i][1:31],
-                        np.mean(seen_mat[i]),
-                        recovered,
-                        at,
-                        np.sum(master_mat[i][at]),
-                        PATH_PROBS_UW[at],
-                        "".join([str(int(n)) for n in full_confusion[i][at]]),
-                )
-        RECOV_PCTS.append(recovered)
-    if ARGS.quiet:
-        print "%.2f %.2f %.2f" % (min(RECOV_PCTS), max(RECOV_PCTS), np.mean(RECOV_PCTS))
+        for i in range(0, len(con_mat)):
+            recovered = 0.0
+            at = None
+            for j in range(0, len(con_mat[i])):
+                if con_mat[i][j] > recovered:
+                    recovered = con_mat[i][j]
+                    at = j
+            if at != None:
+                RECOVERIES.append((at, recovered))
+                if not ARGS.quiet:
+                    print "%d\t%s\t%d\t%.2f\t%d\t%d\t%.2f\t%s" % (
+                            i,
+                            REF_NAMES[i][1:31],
+                            np.mean(seen_mat[i]),
+                            recovered,
+                            at,
+                            np.sum(master_mat[i][at]),
+                            PATH_PROBS_UW[at],
+                            "".join([str(int(n)) for n in full_confusion[i][at]]),
+                    )
+            RECOV_PCTS.append(recovered)
+        if ARGS.quiet:
+            print "%.2f %.2f %.2f" % (min(RECOV_PCTS), max(RECOV_PCTS), np.mean(RECOV_PCTS))
 
-    if not ARGS.quiet:
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots(2,1,sharex=True)
-        x_ax = range(0, len(PATHS))
-        ax[0].set_title("Gene Identity Recovery by Iteration")
-        for i in range(0, len(REFS)):
-            ax[0].plot(x_ax, con_mat[i], linewidth=2.0, alpha=0.75)
-        ax[0].set_ylabel("Identity (%)")
-        ax[0].set_ylim(0, 100)
+        if not ARGS.quiet:
+            import matplotlib.pyplot as plt
+            fig, ax = plt.subplots(2,1,sharex=True)
+            x_ax = range(0, len(PATHS))
+            ax[0].set_title("Gene Identity Recovery by Iteration")
+            for i in range(0, len(REFS)):
+                ax[0].plot(x_ax, con_mat[i], linewidth=2.0, alpha=0.75)
+            ax[0].set_ylabel("Identity (%)")
+            ax[0].set_ylim(0, 100)
 
-        PATH_PROBS_RATIO = []
-        for i, p in enumerate(PATH_PROBS):
-            try:
-                PATH_PROBS_RATIO.append( PATH_PROBS[i] / PATH_PROBS_UW[i] )
-            except:
-                PATH_PROBS_RATIO.append(0)
-        # Add likelihood
-        ax[1].plot(x_ax, PATH_PROBS, color="red", linewidth=3.0)
-        ax[1].plot(x_ax, PATH_PROBS_UW, color="green", linewidth=3.0)
-        ax[1].set_ylabel("Log(P)")
-        ax[1].set_title("Path Likelihood by Iteration")
+            PATH_PROBS_RATIO = []
+            for i, p in enumerate(PATH_PROBS):
+                try:
+                    PATH_PROBS_RATIO.append( PATH_PROBS[i] / PATH_PROBS_UW[i] )
+                except:
+                    PATH_PROBS_RATIO.append(0)
+            # Add likelihood
+            ax[1].plot(x_ax, PATH_PROBS, color="red", linewidth=3.0)
+            ax[1].plot(x_ax, PATH_PROBS_UW, color="green", linewidth=3.0)
+            ax[1].set_ylabel("Log(P)")
+            ax[1].set_title("Path Likelihood by Iteration")
 
-        #ax[2].plot(x_ax, PATH_PROBS_RATIO, color="blue", linewidth=3.0)
-        ax[1].set_xlabel("Iteration (#)")
+            #ax[2].plot(x_ax, PATH_PROBS_RATIO, color="blue", linewidth=3.0)
+            ax[1].set_xlabel("Iteration (#)")
 
-        # Add recoveries
-        for r in RECOVERIES:
-            ax[0].axvline(r, color='k', linestyle='--')
-            ax[1].axvline(r, color='k', linestyle='--')
-            #ax[2].axvline(r, color='k', linestyle='--')
-        plt.show()
-
-        """
-        for i in range(0, len(REFS)):
-            plt.pcolor(snp_mat[i], cmap=plt.cm.Blues)
-            plt.show()
-        for i in range(0, len(PATHS)):
-            plt.pcolor(snp_mat[i], cmap=plt.cm.Blues)
-            print snp_mat[i]
+            # Add recoveries
+            for r in RECOVERIES:
+                ax[0].axvline(r[0], color='k', linewidth=2.0, alpha=r[1]/100.0)
+                ax[1].axvline(r[0], color='k', linewidth=2.0, alpha=r[1]/100.0)
+                #ax[2].axvline(r, color='k', linestyle='--')
             plt.show()
 
-        running_bottom = None
-        plt.bar(range(0, VCF_h["N"]+1), np.array(all_marginals["A"])/np.array(all_marginals["total"]), color="blue")
-        running_bottom = np.array(all_marginals["A"])/np.array(all_marginals["total"])
+            """
+            for i in range(0, len(REFS)):
+                plt.pcolor(snp_mat[i], cmap=plt.cm.Blues)
+                plt.show()
+            for i in range(0, len(PATHS)):
+                plt.pcolor(snp_mat[i], cmap=plt.cm.Blues)
+                print snp_mat[i]
+                plt.show()
 
-        plt.bar(range(0, VCF_h["N"]+1), np.array(all_marginals["C"])/np.array(all_marginals["total"]), bottom=running_bottom, color="green")
-        running_bottom += np.array(all_marginals["C"])/np.array(all_marginals["total"])
+            running_bottom = None
+            plt.bar(range(0, VCF_h["N"]+1), np.array(all_marginals["A"])/np.array(all_marginals["total"]), color="blue")
+            running_bottom = np.array(all_marginals["A"])/np.array(all_marginals["total"])
 
-        plt.bar(range(0, VCF_h["N"]+1), np.array(all_marginals["G"])/np.array(all_marginals["total"]), bottom=running_bottom, color="red")
-        running_bottom += np.array(all_marginals["G"])/np.array(all_marginals["total"])
+            plt.bar(range(0, VCF_h["N"]+1), np.array(all_marginals["C"])/np.array(all_marginals["total"]), bottom=running_bottom, color="green")
+            running_bottom += np.array(all_marginals["C"])/np.array(all_marginals["total"])
 
-        plt.bar(range(0, VCF_h["N"]+1), np.array(all_marginals["T"])/np.array(all_marginals["total"]), bottom=running_bottom, color="yellow")
-        running_bottom += np.array(all_marginals["T"])/np.array(all_marginals["total"])
+            plt.bar(range(0, VCF_h["N"]+1), np.array(all_marginals["G"])/np.array(all_marginals["total"]), bottom=running_bottom, color="red")
+            running_bottom += np.array(all_marginals["G"])/np.array(all_marginals["total"])
 
-        plt.bar(range(0, VCF_h["N"]+1), np.array(all_marginals["N"])/np.array(all_marginals["total"]), bottom=running_bottom, color="black")
-        plt.show()
-        """
+            plt.bar(range(0, VCF_h["N"]+1), np.array(all_marginals["T"])/np.array(all_marginals["total"]), bottom=running_bottom, color="yellow")
+            running_bottom += np.array(all_marginals["T"])/np.array(all_marginals["total"])
+
+            plt.bar(range(0, VCF_h["N"]+1), np.array(all_marginals["N"])/np.array(all_marginals["total"]), bottom=running_bottom, color="black")
+            plt.show()
+            """

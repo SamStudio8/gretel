@@ -16,6 +16,8 @@ def load_from_bam(hansel, bam, target_contig, vcf_handler):
         # Check there is any support
         LEFTMOST_1pos = read.reference_start + 1 # Convert 0-based reference_start to 1-based position (to match region array and 1-based VCF)
         support_len = sum(vcf_handler["region"][LEFTMOST_1pos: LEFTMOST_1pos+read.query_alignment_length])
+
+        # Ignore reads without evidence
         if support_len == 0:
             continue
 
@@ -72,6 +74,14 @@ def load_from_bam(hansel, bam, target_contig, vcf_handler):
         for i in range(0, support_len):
             snp_a = support_seq[i]
 
+            #if support_len == 1:
+            #    if rank == 0:
+            #        hansel.add_observation('_', snp_a, 0, 1)
+            #        hansel.add_observation(snp_a, '_', 1, 2)
+            #    else:
+            #        hansel.add_observation(snp_a, '_', rank+1, rank+2)
+
+
             # For each position in the supporting sequence following i
             for j in range(i+1, support_len):
                 snp_b = support_seq[j]
@@ -100,8 +110,9 @@ def load_from_bam(hansel, bam, target_contig, vcf_handler):
                     hansel.add_observation(snp_a, snp_b, i+rank+1, j+rank+1)
 
                     if j==(support_len-1) and abs(i-j)==1:
-                        # The last support sequence SNP, needs a sentinel afterward
-                        hansel.add_observation(snp_b, "_", j+rank+1, j+rank+2)
+                        # The last SNP on a read, needs a sentinel afterward
+                        #hansel.add_observation(snp_b, "_", j+rank+1, j+rank+2)
+                        pass
 
 
     if hansel.L == 1:

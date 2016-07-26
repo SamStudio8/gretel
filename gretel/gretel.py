@@ -196,7 +196,7 @@ def establish_path(n_snps, read_support_mat, original_read_support):
 
     running_prob = 0.0
     running_prob_uw = 0.0
-    current_path = ['N'] # start with the dummy
+    current_path = ['_'] # start with the dummy
     marginals = []
     L = 5
 
