@@ -117,7 +117,7 @@ def load_from_bam(hansel, bam, target_contig, vcf_handler):
 
     if hansel.L == 1:
         from math import ceil
-        hansel.L = int(ceil(np.median(support_seq_lens))) #TODO
+        hansel.L = int(ceil(np.mean(support_seq_lens))) #TODO
         sys.stderr.write("[NOTE] Setting Gretel.L to %d\n" % hansel.L)
 
 def load_fasta(fa_path):
