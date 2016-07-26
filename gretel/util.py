@@ -111,8 +111,8 @@ def load_from_bam(hansel, bam, target_contig, vcf_handler):
 
                     if j==(support_len-1) and abs(i-j)==1:
                         # The last SNP on a read, needs a sentinel afterward
-                        #hansel.add_observation(snp_b, "_", j+rank+1, j+rank+2)
-                        pass
+                        hansel.add_observation(snp_b, "_", j+rank+1, j+rank+2)
+                        #pass
 
 
     if hansel.L == 1:

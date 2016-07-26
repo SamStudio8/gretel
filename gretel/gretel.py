@@ -33,7 +33,6 @@ def add_ignore_support3(supports_mat, n_snps, path, ratio):
                     t_i = i
                     t_j = j
                 supports_mat.reweight_observation(path[t_i], path[t_j], t_i, t_j, ratio)
-    return supports_mat
 
 
 ## INPUT OUTPUT ###############################################################

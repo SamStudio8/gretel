@@ -3,6 +3,7 @@ import numpy as np
 
 from hansel import Hansel
 import gretel
+import util
 
 def main():
     parser = argparse.ArgumentParser(description="Gretel: A metagenomic haplotyper.")
@@ -93,7 +94,7 @@ def main():
         if init_path == None:
             break
         current_path = init_path
-        BAM_h["read_support"] = gretel.add_ignore_support3(BAM_h["read_support"], VCF_h["N"], init_path, init_min)
+        gretel.add_ignore_support3(BAM_h["read_support"], VCF_h["N"], init_path, init_min)
         PATHS.append(current_path)
         PATH_PROBS.append(init_prob["weighted"])
         PATH_PROBS_UW.append(init_prob["unweighted"])
@@ -101,11 +102,10 @@ def main():
 
     # Make some pretty pictures
     if ARGS.master:
+        master_fa = util.load_fasta(ARGS.master)
+        master_seq = master_fa.fetch(master_fa.references[0])
         fasta_out_fh = open("out.fasta", "w")
-        master_fh = open(ARGS.master)
-        master_fh.readline()
-        master_seq = "".join([l.strip() for l in master_fh.readlines()])
-        master_fh.close()
+
         for i, path in enumerate(PATHS):
             seq = list(master_seq)
             for j, mallele in enumerate(path[1:]):
