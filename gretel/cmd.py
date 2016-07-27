@@ -16,23 +16,11 @@ def main():
     parser.add_argument("-l", "--lorder", type=int, default=1, help="Order of markov chain to predict next nucleotide [default:1]")
     parser.add_argument("-p", "--paths", type=int, default=100, help="Maximum number of paths to generate [default:100]")
 
-    parser.add_argument("--genes", default=None, help="Input genes for verification")
-    parser.add_argument("--hit", default=None, help="Hit table for verification")
     parser.add_argument("--master", default=None, help="Master sequence if available")
 
     parser.add_argument("--quiet", default=False, action='store_true', help="Don't output anything other than a single summary line.")
 
     ARGS = parser.parse_args()
-
-    # Process hit table and FASTA reference (if provided)
-    HITS = []
-    REFS = None
-    REF_NAMES = []
-    if ARGS.hit and ARGS.genes:
-        HITS = gretel.process_hits(ARGS.hit)
-        REFS = gretel.process_refs(ARGS.genes)
-        REF_NAMES = list(REFS.references)
-
 
     VCF_h = gretel.process_vcf(ARGS.vcf, ARGS.contig, 1, ARGS.end)
     BAM_h = gretel.process_bam(VCF_h, ARGS.bam, ARGS.contig, ARGS.lorder)
