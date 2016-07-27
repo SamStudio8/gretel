@@ -16,11 +16,12 @@ import util
 
 ## PROBABILITY ################################################################
 def add_ignore_support3(supports_mat, n_snps, path, ratio):
+    size = 0
     for i in range(0, n_snps+1):
         for j in range(0, i+1+1):
             # Reduce read supports
             if i >= n_snps:
-                supports_mat.reweight_observation(path[i], path[j], i, i+1, ratio)
+                size += supports_mat.reweight_observation(path[i], path[j], i, i+1, ratio)
                 break #???
             else:
                 if j < i:
@@ -32,7 +33,8 @@ def add_ignore_support3(supports_mat, n_snps, path, ratio):
                 else:
                     t_i = i
                     t_j = j
-                supports_mat.reweight_observation(path[t_i], path[t_j], t_i, t_j, ratio)
+                size += supports_mat.reweight_observation(path[t_i], path[t_j], t_i, t_j, ratio)
+    return size
 
 
 ## INPUT OUTPUT ###############################################################
@@ -97,87 +99,6 @@ def process_bam(vcf_handler, bam_path, contig_name, L):
         "read_support": hansel,
         "read_support_o": hansel.copy(),
     }
-
-def confusion_matrix(PATHS, VCF_h, HITS, REFS, REF_NAMES, N, master_path=None):
-    #FIXME Kinda gross
-    CONFUSION = np.zeros( (len(REFS), len(PATHS)) )
-    SEEN = np.zeros( (len(REFS), len(PATHS)) )
-    snp_matrix = np.zeros( (len(REFS), len(PATHS), N) )
-    mat_matrix = np.zeros( (len(REFS), len(PATHS), N) )
-    #snp_matrix = np.zeros( (len(PATHS), len(REFS), N+1) )
-    full_confusion = np.zeros(( len(REFS), len(PATHS), N ))
-
-    if master_path:
-        master_fa = util.load_fasta(master_path)
-        master_seq = master_fa.fetch(master_fa.references[0])
-
-    if not (HITS and REFS):
-        sys.stderr.write("Cannot call confusion_matrix without references to check against :<\n")
-
-    for path_id, path_variants in enumerate(PATHS):
-        for ref_gene_id, ref_gene_name in enumerate(REF_NAMES):
-
-            # Get the current input gene sequence
-            ref_seq = REFS.fetch(ref_gene_name)
-
-            for hit_record in [h for h in HITS if h["subject"] == ref_gene_name]:
-                # Test a path, against a hit for the current reference
-                # Typically there is just one hit for each reference, but this is not strictly true.
-                sys.stderr.write("[TEST] PATH%d, %s with hit %s\n" % (path_id, ref_gene_name, str(hit_record)))
-
-                # Iterate over the current path and compare the malleles
-                # (Ignore the first variant of the path, it's the sentinel)
-                for variant_id, variant in enumerate(path_variants[1:]):
-                    full_confusion[ref_gene_id][path_id][variant_id] = 9
-
-                    # Translate the variant_id to 1-based position of the variant on the MASTER (pseudo-ref)
-                    snp_pos_on_master = VCF_h["snp_rev"][variant_id]
-
-                    # Does the hit cover the reference at the variant?
-                    if snp_pos_on_master < hit_record["ref_s"] or snp_pos_on_master > hit_record["ref_e"]:
-                        continue
-
-                    #TODO should probably consider ARGS["REGION_START"]
-                    # Translate 1-based MASTER position to 0-based (ref_seq string) based on hit_record:
-                    # ...convert MASTER position (1-indexed) to 0-indexed (ref string is python string)
-                    position = snp_pos_on_master - 1
-
-                    # ...add offset of subject start (-1 to convert from blast hit6 1-pos to 0-pos)
-                    #   The subject has some leader sequence that does not hit the
-                    #   query (reference), we ignore it by adding the sub_s offset.
-                    #
-                    #     >>>>>>>>>>>>>>|================================ REF(QRY)
-                    #     |============================================== HIT(SUB)
-                    #                   |
-                    #                   *sub_s (1-indexed start of hit on subject)
-                    position += hit_record["sub_s"] - 1
-
-                    # ...remove offset of reference start (-1 to convert from blast hit6 1-pos to 0-pos)
-                    #   The subject does not cover the entirity of the query (reference),
-                    #   positions of the subject therefore refer to earlier parts of
-                    #   the query, we adjust this by shifting positions backward...
-                    #
-                    #              *ref_s (1-indexed start of hit on query)
-                    #              |
-                    #     |============================================== REF(QRY)
-                    #     <<<<<<<<<|===================================== HIT(SUB)
-                    position -= hit_record["ref_s"] - 1
-
-                    # Does the variant at the reference site match the variant of the current path?
-                    if ref_seq[position] == variant:
-                        if master_path:
-                            if variant != master_seq[snp_pos_on_master-1]:
-                                mat_matrix[ref_gene_id][path_id][variant_id] = 1
-                        CONFUSION[ref_gene_id][path_id] += 1
-                        full_confusion[ref_gene_id][path_id][variant_id] = 1
-                        snp_matrix[ref_gene_id][path_id][variant_id] = 100
-                        #snp_matrix[pi][ri][i] += 100
-                    else:
-                        full_confusion[ref_gene_id][path_id][variant_id] = 0
-                    #snp_matrix[pi][ri][i] += 50
-                    SEEN[ref_gene_id][path_id] += 1
-
-    return (CONFUSION / SEEN) * 100, snp_matrix, SEEN, mat_matrix, full_confusion
 
 ## PATH GENERATION ############################################################
 
