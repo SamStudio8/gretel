@@ -13,12 +13,13 @@ def main():
     #parser.add_argument("-s", "--start", type=int, default=1, help="1-indexed start base position [default: 1]")
     parser.add_argument("-e", "--end", type=int, default=-1, help="1-indexed end base position [default: contig end]")
 
-    parser.add_argument("-l", "--lorder", type=int, default=1, help="Order of markov chain to predict next nucleotide [default:1]")
+    parser.add_argument("-l", "--lorder", type=int, default=0, help="Order of markov chain to predict next nucleotide [default:1]")
     parser.add_argument("-p", "--paths", type=int, default=100, help="Maximum number of paths to generate [default:100]")
 
     parser.add_argument("--master", default=None, help="Master sequence if available")
 
     parser.add_argument("--quiet", default=False, action='store_true', help="Don't output anything other than a single summary line.")
+    parser.add_argument("-o", "--out", default=".", help="Output directory [default .]")
 
     ARGS = parser.parse_args()
 
@@ -90,6 +91,7 @@ def main():
         if current_path in PATHS:
             continue
         else:
+            ongoing_mag += rw_magnitude
             PATHS.append(current_path)
             PATH_PROBS.append(init_prob["weighted"])
             PATH_PROBS_UW.append(init_prob["unweighted"])
@@ -99,10 +101,11 @@ def main():
 
 
     # Make some pretty pictures
+    dirn = ARGS.out + "/"
     if ARGS.master:
         master_fa = util.load_fasta(ARGS.master)
         master_seq = master_fa.fetch(master_fa.references[0])
-        fasta_out_fh = open("out.fasta", "w")
+        fasta_out_fh = open(dirn+"out.fasta", "w")
 
         for i, path in enumerate(PATHS):
             seq = list(master_seq)
@@ -117,7 +120,18 @@ def main():
             fasta_out_fh.write("%s\n" % "".join(seq))
         fasta_out_fh.close()
 
-    crumb_file = open("gretel.crumbs", "w")
+    #TODO datetime, n_obs, n_slices, avg_obs_len, L, n_paths, n_avg_loglik
+    crumb_file = open(dirn+"gretel.crumbs", "w")
+    crumb_file.write("# %d\t%d\t%d\t%.2f\t%d\t%.2f\t%.2f\t%.2f\n" % (
+        VCF_h["N"],
+        BAM_h["read_support"].n_crumbs,
+        BAM_h["read_support"].n_slices,
+        np.mean(BAM_h["meta"]["support_seq_lens"]),
+        BAM_h["read_support"].L,
+        np.mean(PATH_PROBS),
+        np.mean(PATH_PROBS_UW),
+        np.mean(PATH_FALLS),
+    ))
     for p in range(len(PATHS)):
         crumb_file.write("%d\t%.2f\t%.2f\t%.2f\n" % (
                 p,

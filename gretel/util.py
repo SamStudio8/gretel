@@ -4,8 +4,10 @@ import sys
 
 #TODO SENTINEL SYMBOLS BEFORE AND AFTER A READ
 #TODO What happens if we traverse backwards...?
+#TODO Single SNP reads could use a pairwise observation with themselves? (A, A, i, i)
 
 def load_from_bam(hansel, bam, target_contig, vcf_handler):
+    meta = {}
     support_seq_lens = []
     for read in bam.fetch(target_contig):
         hansel.n_slices += 1
@@ -115,10 +117,12 @@ def load_from_bam(hansel, bam, target_contig, vcf_handler):
                         #pass
 
 
-    if hansel.L == 1:
+    meta["support_seq_lens"] = support_seq_lens
+    if hansel.L == 0:
         from math import ceil
         hansel.L = int(ceil(np.mean(support_seq_lens))) #TODO
         sys.stderr.write("[NOTE] Setting Gretel.L to %d\n" % hansel.L)
+    return meta
 
 def load_fasta(fa_path):
     return pysam.FastaFile(fa_path)

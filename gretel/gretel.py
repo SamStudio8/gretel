@@ -93,11 +93,12 @@ def process_bam(vcf_handler, bam_path, contig_name, L):
     read_support_mat = np.zeros( (6, 6, vcf_handler["N"]+2, vcf_handler["N"]+2) )
     hansel = Hansel(read_support_mat, ['A', 'C', 'G', 'T', 'N', "_"], ['N', "_"], L=L)
 
-    util.load_from_bam(hansel, bam, contig_name, vcf_handler)
+    meta = util.load_from_bam(hansel, bam, contig_name, vcf_handler)
 
     return {
         "read_support": hansel,
         "read_support_o": hansel.copy(),
+        "meta": meta,
     }
 
 ## PATH GENERATION ############################################################

@@ -7,6 +7,8 @@ PROBS = []
 PROBS_UW = []
 WEIGHTS = []
 for line in crumbs:
+    if line[0] == "#":
+        continue
     fields = [float(x) for x in line.strip().split("\t")]
     PROBS.append(fields[1])
     PROBS_UW.append(fields[2])
