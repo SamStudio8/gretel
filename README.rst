@@ -30,4 +30,4 @@ Usage
 -----
 ::
 
-    $ gretel <bam> <vcf.gz> <contig> -s <1-start> -e <1-end> --genes <input.fa> --hit <hit.txt>
+    $ gretel <bam> <vcf.gz> <contig> -e <1-end> --master <master.fa>
