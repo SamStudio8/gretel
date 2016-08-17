@@ -40,3 +40,6 @@ To plot some graphs given a known FASTA of haplotypes and the Gretel crumbs: ::
     $ blastn -query known_haplotypes.fa -db out.blast -outfmt 6 | sort -k2 -n > out.hit
     $ gretel-crumbs <out.hit> <gretel.crumbs>
 
+License
+-------
+Hansel and Gretel are distributed under the MIT license, see LICENSE.
