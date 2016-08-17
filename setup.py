@@ -35,7 +35,10 @@ setuptools.setup(
     install_requires=requirements,
 
     entry_points = {
-        "console_scripts": ["gretel=gretel.cmd:main"]
+        "console_scripts": [
+            "gretel=gretel.cmd:main",
+            "gretel-crumbs=gretel.cmd:crumbs",
+        ]
     },
 
     classifiers = [

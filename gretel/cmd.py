@@ -1,9 +1,86 @@
 import argparse
 import numpy as np
+import sys
 
 from hansel import Hansel
 import gretel
 import util
+
+def crumbs():
+    import matplotlib.pyplot as plt
+    parser = argparse.ArgumentParser(description="Gretel Crumb Plotter: A naive insight to the crumbs left by Gretel.")
+    parser.add_argument("hits")
+    parser.add_argument("crumbs")
+    ARGS = parser.parse_args()
+
+    hits = open(ARGS.hits)
+    crumbs = open(ARGS.crumbs)
+
+    PROBS = []
+    PROBS_UW = []
+    WEIGHTS = []
+    for line in crumbs:
+        if line[0] == "#":
+            continue
+        fields = [float(x) for x in line.strip().split("\t")]
+        PROBS.append(fields[1])
+        PROBS_UW.append(fields[2])
+        WEIGHTS.append(fields[3])
+
+    mismatches = {}
+    best_by_id = {}
+
+    for line in hits:
+        fields = line.strip().split("\t")
+        query = fields[1]
+        gene = fields[0]
+        pid = int(query.split("__")[0])
+
+        if gene not in mismatches:
+            mismatches[gene] = [None] * len(PROBS)
+        mismatches[gene][pid] = int(fields[4])
+
+        metric = float(fields[11])
+        if gene not in best_by_id:
+            best_by_id[gene] = {
+                "p": query,
+                "id": float(fields[2]),
+                "line": line.strip(),
+                "p_": pid,
+                "metric": metric
+            }
+        else:
+            if metric > best_by_id[gene]["metric"]:
+                best_by_id[gene] = {
+                    "p": query,
+                    "id": float(fields[2]),
+                    "line": line.strip(),
+                    "p_": pid,
+                    "metric": metric
+                }
+
+    fig, ax = plt.subplots(3,1,sharex=True)
+    x_ax = range(0, len(mismatches[mismatches.keys()[0]]) )
+    ax[0].set_title("Gene Mismatches by Iteration")
+    for g in mismatches:
+        ax[0].plot(x_ax, mismatches[g], linewidth=2.0, alpha=0.75)
+    ax[0].set_ylabel("Mismatches (#)")
+
+    ax[1].plot(x_ax, PROBS, color="red", linewidth=3.0)
+    ax[1].plot(x_ax, PROBS_UW, color="green", linewidth=3.0)
+    ax[1].set_ylabel("Log(P)")
+    ax[1].set_title("Path Likelihood by Iteration")
+
+    ax[2].plot(x_ax, WEIGHTS)
+    ax[2].set_ylabel("Observations (#)")
+    ax[2].set_title("Observations Removed by Iteration")
+
+    # Add lines
+    for k, v in best_by_id.items():
+        ax[0].axvline(v["p_"], color='k', linewidth=2.0, alpha=v["id"]/100.0)
+        ax[1].axvline(v["p_"], color='k', linewidth=2.0, alpha=v["id"]/100.0)
+        ax[2].axvline(v["p_"], color='k', linewidth=2.0, alpha=v["id"]/100.0)
+    plt.show()
 
 def main():
     parser = argparse.ArgumentParser(description="Gretel: A metagenomic haplotyper.")
@@ -115,7 +192,7 @@ def main():
                     seq[snp_pos_on_master-1] = mallele
                 except IndexError:
                     print path, len(seq), snp_pos_on_master-1
-                    import sys; sys.exit(1)
+                    sys.exit(1)
             fasta_out_fh.write(">%d__%.2f\n" % (i, PATH_PROBS[i]))
             fasta_out_fh.write("%s\n" % "".join(seq))
         fasta_out_fh.close()

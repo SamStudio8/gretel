@@ -5,15 +5,6 @@ A (work-in-progress) algorithm for recovering potential haplotypes from metageno
 Housekeeping
 ------------
 
-virtualenv
-~~~~~~~~~~
-
-`matplotlib` misbehaves somewhat when you attempt to install it in a fashion that
-isolates it from the system packages, to get around this one can cheat and include
-the system packages in the `virtualenv`.:: 
-
-    $ virtualenv gretel --system-site-packages
-
 Dependencies
 ~~~~~~~~~~~~
 ::
@@ -31,3 +22,20 @@ Usage
 ::
 
     $ gretel <bam> <vcf.gz> <contig> -e <1-end> --master <master.fa>
+
+
+To plot some graphs given a known FASTA of haplotypes and the Gretel crumbs: ::
+
+    $ makeblastdb -in out.fasta -dbtype nucl -out out.blast
+    $ blastn -query known_haplotypes.fa -db out.blast -outfmt 6 | sort -k2 -n > out.hit
+    $ gretel-crumbs <out.hit> <gretel.crumbs>
+
+virtualenv
+~~~~~~~~~~
+
+`matplotlib` misbehaves somewhat when you attempt to install it in a fashion that
+isolates it from the system packages, to get around this one can cheat and include
+the system packages in the `virtualenv`.:: 
+
+    $ virtualenv gretel --system-site-packages
+
