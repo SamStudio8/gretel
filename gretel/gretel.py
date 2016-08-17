@@ -84,7 +84,7 @@ def process_vcf(vcf_path, contig_name, start_pos, end_pos):
         "region": region,
     }
 
-def process_bam(vcf_handler, bam_path, contig_name, L):
+def process_bam(vcf_handler, bam_path, contig_name, L, use_end_sentinels):
     bam = pysam.AlignmentFile(bam_path)
 
     #NOTE(samstudio8)
@@ -93,7 +93,7 @@ def process_bam(vcf_handler, bam_path, contig_name, L):
     read_support_mat = np.zeros( (6, 6, vcf_handler["N"]+2, vcf_handler["N"]+2) )
     hansel = Hansel(read_support_mat, ['A', 'C', 'G', 'T', 'N', "_"], ['N', "_"], L=L)
 
-    meta = util.load_from_bam(hansel, bam, contig_name, vcf_handler)
+    meta = util.load_from_bam(hansel, bam, contig_name, vcf_handler, use_end_sentinels)
 
     return {
         "read_support": hansel,

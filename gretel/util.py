@@ -6,7 +6,7 @@ import sys
 #TODO What happens if we traverse backwards...?
 #TODO Single SNP reads could use a pairwise observation with themselves? (A, A, i, i)
 
-def load_from_bam(hansel, bam, target_contig, vcf_handler):
+def load_from_bam(hansel, bam, target_contig, vcf_handler, use_end_sentinels=False):
     meta = {}
     support_seq_lens = []
     for read in bam.fetch(target_contig):
@@ -111,10 +111,10 @@ def load_from_bam(hansel, bam, target_contig, vcf_handler):
                 else:
                     hansel.add_observation(snp_a, snp_b, i+rank+1, j+rank+1)
 
-                    if j==(support_len-1) and abs(i-j)==1:
-                        # The last SNP on a read, needs a sentinel afterward
-                        #hansel.add_observation(snp_b, "_", j+rank+1, j+rank+2)
-                        pass
+                    if use_end_sentinels:
+                        if j==(support_len-1) and abs(i-j)==1:
+                            # The last SNP on a read, needs a sentinel afterward
+                            hansel.add_observation(snp_b, "_", j+rank+1, j+rank+2)
 
 
     meta["support_seq_lens"] = support_seq_lens

@@ -93,15 +93,16 @@ def main():
     parser.add_argument("-l", "--lorder", type=int, default=0, help="Order of markov chain to predict next nucleotide [default:1]")
     parser.add_argument("-p", "--paths", type=int, default=100, help="Maximum number of paths to generate [default:100]")
 
-    parser.add_argument("--master", default=None, help="Master sequence if available")
+    parser.add_argument("--master", default=None, help="Master sequence if available (required to generate out.fasta)")
 
     parser.add_argument("--quiet", default=False, action='store_true', help="Don't output anything other than a single summary line.")
+    parser.add_argument("--sentinels", default=False, action='store_true', help="Add additional sentinels for read ends [default:False]")
     parser.add_argument("-o", "--out", default=".", help="Output directory [default .]")
 
     ARGS = parser.parse_args()
 
     VCF_h = gretel.process_vcf(ARGS.vcf, ARGS.contig, 1, ARGS.end)
-    BAM_h = gretel.process_bam(VCF_h, ARGS.bam, ARGS.contig, ARGS.lorder)
+    BAM_h = gretel.process_bam(VCF_h, ARGS.bam, ARGS.contig, ARGS.lorder, ARGS.sentinels)
 
     #print "[META] #CONTIG", ARGS.contig
     #print "[META] #SNPS", VCF_h["N"]
