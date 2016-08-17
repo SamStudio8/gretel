@@ -1,6 +1,7 @@
 gretel
 ======
-A (work-in-progress) algorithm for recovering potential haplotypes from metagenomes
+A (work-in-progress) algorithm for recovering haplotypes from metagenomes.
+Sister to `Hansel<https://github.com/SamStudio8/hansel>`_.
 
 Housekeeping
 ------------
