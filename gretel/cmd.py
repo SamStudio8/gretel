@@ -7,6 +7,7 @@ import gretel
 import util
 
 def crumbs():
+    """Gretel Crumb Plotter: A naive insight to the crumbs left by Gretel."""
     import matplotlib.pyplot as plt
     parser = argparse.ArgumentParser(description="Gretel Crumb Plotter: A naive insight to the crumbs left by Gretel.")
     parser.add_argument("hits")
@@ -83,6 +84,7 @@ def crumbs():
     plt.show()
 
 def main():
+    """Gretel: A metagenomic haplotyper."""
     parser = argparse.ArgumentParser(description="Gretel: A metagenomic haplotyper.")
     parser.add_argument("bam")
     parser.add_argument("vcf")
@@ -96,7 +98,7 @@ def main():
     parser.add_argument("--master", default=None, help="Master sequence if available (required to generate out.fasta)")
 
     parser.add_argument("--quiet", default=False, action='store_true', help="Don't output anything other than a single summary line.")
-    parser.add_argument("--sentinels", default=False, action='store_true', help="Add additional sentinels for read ends [default:False]")
+    parser.add_argument("--sentinels", default=False, action='store_true', help="Add additional sentinels for read ends [default:False][EXPERIMENTAL]")
     parser.add_argument("-o", "--out", default=".", help="Output directory [default .]")
 
     ARGS = parser.parse_args()
@@ -159,11 +161,11 @@ def main():
     SPINS = ARGS.paths
     ongoing_mag = 0
     for i in range(0, SPINS):
-        init_path, init_prob, init_min = gretel.establish_path(VCF_h["N"], BAM_h["read_support"], BAM_h["read_support_o"])
+        init_path, init_prob, init_min = gretel.generate_path(VCF_h["N"], BAM_h["read_support"], BAM_h["read_support_o"])
         if init_path == None:
             break
         current_path = init_path
-        rw_magnitude = gretel.add_ignore_support3(BAM_h["read_support"], VCF_h["N"], init_path, init_min)
+        rw_magnitude = gretel.reweight_hansel_from_path(BAM_h["read_support"], init_path, init_min)
 
         #TODO Horribly inefficient.
         if current_path in PATHS:

@@ -7,6 +7,53 @@ import sys
 #TODO Single SNP reads could use a pairwise observation with themselves? (A, A, i, i)
 
 def load_from_bam(hansel, bam, target_contig, vcf_handler, use_end_sentinels=False):
+    """
+    Load variants observed in a :py:class:`pysam.AlignmentFile` to
+    an instance of :py:class:`hansel.hansel.Hansel`.
+
+    Parameters
+    ----------
+    hansel : :py:class:`hansel.hansel.Hansel`
+        An initialised instance of the `Hansel` data structure.
+
+    bam : :py:class:`pysam.AlignmentFile`
+        A BAM alignment.
+
+    target_contig : str
+        The name of the contig for which to recover haplotypes.
+
+    vcf_handler : dict{str, any}
+        Variant metadata, as provided by :py:func:`gretel.gretel.process_vcf`.
+
+    use_end_sentinels : boolean, optional(default=False)
+        Whether or not to append an additional pairwise observation between
+        the final variant on a read towards a sentinel.
+
+        .. note:: Experimental
+          This feature is for testing purposes, currently it is recommended
+          that the flag be left at the default of `False`. However, some
+          data sets report minor performance improvements for some haplotypes
+          when set to `True`. Currently there is no applicable re-weighting
+          scheme for reducing the observations that end at sentinels.
+          This flag may be removed at any time without warning.
+
+    Returns
+    -------
+    Metadata : dict{str, any}
+        A dictionary of metadata that may come in useful later.
+        Primarily used to return a list of integers describing the number of
+        variants covered by each read in the provided alignment BAM.
+
+    Raises
+    ------
+    Exception
+        Aborts if an unsupported CIGAR operation is encountered.
+        Currently supports Match, Insert, Delete, Soft Clip.
+    Exception
+        Aborts if a SNP site is not reached when parsing the CIGAR for a read that
+        should overlap that position.
+    """
+
     meta = {}
     support_seq_lens = []
     for read in bam.fetch(target_contig):
@@ -125,5 +172,18 @@ def load_from_bam(hansel, bam, target_contig, vcf_handler, use_end_sentinels=Fal
     return meta
 
 def load_fasta(fa_path):
+    """
+    A convenient wrapper function for constructing a :py:class:`pysam.FastaFile`
+
+    Parameters
+    ----------
+    fa_path : str
+        Path to FASTA
+
+    Returns
+    -------
+
+    FASTA File Interface : :py:class:`pysam.FastaFile`
+    """
     return pysam.FastaFile(fa_path)
 

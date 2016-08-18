@@ -14,14 +14,38 @@ import util
 #TODO Should the denom of the conditional use the unique variants at i-l or i?
 #TODO Util to parse known input and return SNP seq
 
-## PROBABILITY ################################################################
-def add_ignore_support3(supports_mat, n_snps, path, ratio):
+def reweight_hansel_from_path(hansel, path, ratio):
+    """
+    Given a completed path (haplotype), reweight the applicable pairwise observations in the Hansel structure.
+
+    Parameters
+    ----------
+    hansel : :py:class:`hansel.hansel.Hansel`
+        The Hansel structure currently being explored by Gretel.
+
+    path : list{str}
+        The ordered sequence of selected variants.
+
+    ratio : float
+        The smallest marginal distribution observed across selected variants.
+
+        *i.e.* For each selected variant in the path, note the value of the
+        marginal distribution for the probability of observing that particular
+        variant at that genomic position. Parameterise the minimum value of
+        those marginals.
+
+    Returns
+    -------
+    Spent Observations : float
+        The sum of removed observations from the Hansel structure.
+    """
+
     size = 0
-    for i in range(0, n_snps+1):
+    for i in range(0, len(path)):
         for j in range(0, i+1+1):
             # Reduce read supports
-            if i >= n_snps:
-                size += supports_mat.reweight_observation(path[i], path[j], i, i+1, ratio)
+            if i >= len(path)-1:
+                size += hansel.reweight_observation(path[i], path[j], i, i+1, ratio)
                 break #???
             else:
                 if j < i:
@@ -33,38 +57,44 @@ def add_ignore_support3(supports_mat, n_snps, path, ratio):
                 else:
                     t_i = i
                     t_j = j
-                size += supports_mat.reweight_observation(path[t_i], path[t_j], t_i, t_j, ratio)
+                size += hansel.reweight_observation(path[t_i], path[t_j], t_i, t_j, ratio)
     return size
 
 
 ## INPUT OUTPUT ###############################################################
-def process_hits(hit_tab):
-    HITS = []
-    with open(hit_tab) as hit_fh:
-        for line in hit_fh:
-            if line[0] == "#":
-                continue
-
-            line = line.strip()
-            if len(line) == 0:
-                continue
-
-            fields = line.split("\t")
-            HITS.append({
-                "subject": fields[1],
-                "length": int(fields[3]),
-                "ref_s": int(fields[6]),
-                "ref_e": int(fields[7]),
-                "sub_s": int(fields[8]),
-                "sub_e": int(fields[9]),
-            })
-    return HITS
-
-
-def process_refs(ref_fa):
-    return util.load_fasta(ref_fa)
-
 def process_vcf(vcf_path, contig_name, start_pos, end_pos):
+    """
+    Parse a VCF to extract the genomic positions of called variants.
+
+    Parameters
+    ----------
+    vcf_path : str
+        Path to the VCF file.
+
+    contig_name : str
+        Name of the target contig on which variants were called.
+
+    start_pos : int
+        The 1-indexed genomic position from which to begin considering variants.
+
+    end_pos : int
+        The 1-indexed genomic position at which to stop considering variants.
+
+    Returns
+    -------
+    Gretel Metastructure : dict
+        A collection of structures used for the execution of Gretel.
+        The currently used keys are:
+            N : int
+                The number of observed SNPs
+            snp_fwd : dict{int, int}
+                A reverse lookup from the n'th variant, to its genomic position on the contig
+            snp_rev : dict{int, int}
+                A forward lookup to translate the n'th genomic position to its i'th SNP rank
+            region : list{int}
+                A masked representation of the target contig, positive values are variant positions
+    """
+
     # Open the VCF
     vcf_records = vcf.Reader(open(vcf_path))
     n_snps = 0
@@ -85,6 +115,42 @@ def process_vcf(vcf_path, contig_name, start_pos, end_pos):
     }
 
 def process_bam(vcf_handler, bam_path, contig_name, L, use_end_sentinels):
+    """
+    Initialise a Hansel structure and load variants from a BAM.
+
+    Parameters
+    ----------
+    vcf_handler : dict{str, any}
+        Variant metadata, as provided by :py:func:`gretel.gretel.process_vcf`.
+
+    bam_path : str
+        Path to the alignment BAM.
+
+    contig_name : str
+        The name of the contig for which to recover haplotypes.
+
+    L : int
+        The Gretel `L-parameter`, controlling the number of positions back
+        from the head of the current path (including the head) to consider
+        when calculating conditional probabilities.
+
+    use_end_sentinels : boolean, optional(default=False)
+        Whether or not to append an additional pairwise observation between
+        the final variant on a read towards a sentinel.
+
+    Returns
+    -------
+    Gretel Metastructure : dict
+        A collection of structures used for the execution of Gretel.
+        The currently used keys are:
+            read_support : :py:class:`hansel.hansel.Hansel`
+                The Hansel structure.
+            read_support_o : :py:class:`hansel.hansel.Hansel`
+                A copy of the Hansel structure stored with the intention of not reweighting its observations.
+            meta : dict{str, any}
+                A dictionary of metadata returned from the BAM parsing, such as
+                a list of the number of variants that each read spans.
+    """
     bam = pysam.AlignmentFile(bam_path)
 
     #NOTE(samstudio8)
@@ -104,13 +170,63 @@ def process_bam(vcf_handler, bam_path, contig_name, L, use_end_sentinels):
 ## PATH GENERATION ############################################################
 
 def append_path(path, next_m, next_v):
-    # Probably a bit gross as it has side effects on path...
+    """
+    Append a selected variant to a given path.
+
+    Parameters
+    ----------
+    path : list{str}
+        The current sequence of variants representing a path (haplotype) in progress.
+
+    next_m : str
+        The symbol to append to the path.
+
+    next_v : float
+        The marginal probability of `next_m` at the current position.
+
+    Raises
+    ------
+    Exception
+        Raised if `next_m` is None.
+    """
+    #TODO(samstudio8) This is somewhat of a pointless stub, now.
+    #TODO(samstudio8) Probably a bit gross as it has side effects on path...
+    #TODO(samstudio8) Could probably raise an Exception for any next_m not in hansel.symbols?
     if next_m is not None:
         path.append(next_m)
     else:
         raise Exception("Cowardly refusing to append None as a nucleotide. Cheerio.")
 
-def establish_path(n_snps, read_support_mat, original_read_support):
+def generate_path(n_snps, hansel, original_hansel):
+    """
+    Explore and generate the most likely path (haplotype) through the observed Hansel structure.
+
+    Parameters
+    ----------
+    n_snps : int
+        The number of variants.
+
+    hansel : :py:class:`hansel.hansel.Hansel`
+        The Hansel structure currently being explored by Gretel.
+
+    original_hansel : :py:class:`hansel.hansel.Hansel`
+        A copy of the Hansel structure created by Gretel, before any reweighting.
+
+    Returns
+    -------
+    Path : list{str} or None
+        The sequence of variants that represent the completed path (or haplotype), or None
+        if one could not be successfully constructed.
+
+    Path Probabilities : dict{str, float}
+        The `unweighted` (orignal Hansel) and `weighted` (current Hansel) joint
+        probabilities of the variants in the returned path occurring together
+        in the given order.
+
+    Minimum Marginal : float
+        The smallest marginal distribution observed across selected variants.
+    """
+
     # Cross the metahaplome in a greedily, naive fashion to establish a base path
     # This seeds the rest of the path generation (we might want to just select
     #   a random path here in future)
@@ -119,7 +235,6 @@ def establish_path(n_snps, read_support_mat, original_read_support):
     running_prob_uw = 0.0
     current_path = ['_'] # start with the dummy
     marginals = []
-    L = 5
 
     # Find path
     sys.stderr.write("*** ESTABLISH ***\n")
@@ -130,7 +245,7 @@ def establish_path(n_snps, read_support_mat, original_read_support):
         # Get marginal and calculate branch probabilities for each available
         # mallele, given the current path seen so far
         # Select the next branch and append it to the path
-        curr_branches = read_support_mat.get_edge_weights_at(snp, current_path)
+        curr_branches = hansel.get_edge_weights_at(snp, current_path)
         sys.stderr.write("\t[TREE] %s\n" % curr_branches)
         # Return the symbol and probability of the next base to add to the
         # current path based on the best marginal
@@ -150,22 +265,22 @@ def establish_path(n_snps, read_support_mat, original_read_support):
         if next_m == None:
             sys.stderr.write("[FAIL] Unable to select next branch from %d to %d\n" % (snp-1, snp))
             return None, None, None
-            current_marg = read_support_mat.get_counts_at(snp)
+            current_marg = hansel.get_counts_at(snp)
             next_m = random.choice(['A', 'C', 'G', 'T'])
             false_marg_ratio = 1 / (1+current_marg["total"])
 
             marginals.append(false_marg_ratio)
             running_prob += log10(false_marg_ratio)
-            current_marg = original_read_support.get_counts_at(snp)
+            current_marg = original_hansel.get_counts_at(snp)
             false_marg_ratio = 1 / (1+current_marg["total"])
             running_prob_uw += log10(false_marg_ratio)
 #TODO testing
         else:
-            selected_edge_weight = read_support_mat.get_marginal_of_at(next_m, snp)
+            selected_edge_weight = hansel.get_marginal_of_at(next_m, snp)
             marginals.append(selected_edge_weight) #TODO This isn't a log, is it accurate enough later?
 
             running_prob += log10(selected_edge_weight)
-            running_prob_uw += log10(original_read_support.get_marginal_of_at(next_m, snp))
+            running_prob_uw += log10(original_hansel.get_marginal_of_at(next_m, snp))
         append_path(current_path, next_m, next_v)
 
     return current_path, {"unweighted": running_prob_uw, "weighted": running_prob}, min(marginals)
