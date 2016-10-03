@@ -15,6 +15,7 @@ import util
 #TODO Util to parse known input and return SNP seq
 
 def reweight_hansel_from_path(hansel, path, ratio):
+    #TODO Reweight only the L pairs?
     """
     Given a completed path (haplotype), reweight the applicable pairwise observations in the Hansel structure.
 
@@ -100,12 +101,19 @@ def process_vcf(vcf_path, contig_name, start_pos, end_pos):
     n_snps = 0
     snp_reverse = {}
     snp_forward = {}
-    region = np.zeros(end_pos - start_pos + 2, dtype=int)
-    for i, record in enumerate(vcf_records.fetch(contig_name, start_pos-1, end_pos)):
+    region = np.zeros(end_pos + 1, dtype=int)
+    i = 0
+    for record in vcf_records.fetch(contig_name, 0, end_pos):
+        if record.POS < start_pos:
+            continue
+        if record.POS > end_pos:
+            continue
+
         n_snps += 1
         region[record.POS] = 1
         snp_reverse[i] = record.POS
         snp_forward[record.POS] = i
+        i += 1
 
     return {
         "N": n_snps,
@@ -114,7 +122,7 @@ def process_vcf(vcf_path, contig_name, start_pos, end_pos):
         "region": region,
     }
 
-def process_bam(vcf_handler, bam_path, contig_name, L, use_end_sentinels):
+def process_bam(vcf_handler, bam_path, contig_name, start_pos, end_pos, L, use_end_sentinels):
     """
     Initialise a Hansel structure and load variants from a BAM.
 
@@ -128,6 +136,12 @@ def process_bam(vcf_handler, bam_path, contig_name, L, use_end_sentinels):
 
     contig_name : str
         The name of the contig for which to recover haplotypes.
+
+    start_pos : int
+        The 1-indexed genomic position from which to begin considering variants.
+
+    end_pos : int
+        The 1-indexed genomic position at which to stop considering variants.
 
     L : int
         The Gretel `L-parameter`, controlling the number of positions back
@@ -159,7 +173,7 @@ def process_bam(vcf_handler, bam_path, contig_name, L, use_end_sentinels):
     read_support_mat = np.zeros( (6, 6, vcf_handler["N"]+2, vcf_handler["N"]+2) )
     hansel = Hansel(read_support_mat, ['A', 'C', 'G', 'T', 'N', "_"], ['N', "_"], L=L)
 
-    meta = util.load_from_bam(hansel, bam, contig_name, vcf_handler, use_end_sentinels)
+    meta = util.load_from_bam(hansel, bam, contig_name, start_pos, end_pos, vcf_handler, use_end_sentinels)
 
     return {
         "read_support": hansel,

@@ -6,7 +6,7 @@ import sys
 #TODO What happens if we traverse backwards...?
 #TODO Single SNP reads could use a pairwise observation with themselves? (A, A, i, i)
 
-def load_from_bam(hansel, bam, target_contig, vcf_handler, use_end_sentinels=False):
+def load_from_bam(hansel, bam, target_contig, start_pos, end_pos, vcf_handler, use_end_sentinels=False):
     """
     Load variants observed in a :py:class:`pysam.AlignmentFile` to
     an instance of :py:class:`hansel.hansel.Hansel`.
@@ -21,6 +21,12 @@ def load_from_bam(hansel, bam, target_contig, vcf_handler, use_end_sentinels=Fal
 
     target_contig : str
         The name of the contig for which to recover haplotypes.
+
+    start_pos : int
+        The 1-indexed genomic position from which to begin considering variants.
+
+    end_pos : int
+        The 1-indexed genomic position at which to stop considering variants.
 
     vcf_handler : dict{str, any}
         Variant metadata, as provided by :py:func:`gretel.gretel.process_vcf`.
@@ -55,69 +61,63 @@ def load_from_bam(hansel, bam, target_contig, vcf_handler, use_end_sentinels=Fal
     """
 
     meta = {}
-    support_seq_lens = []
+    support_seq_sum = 0
+    support_seq_num = 0
     for read in bam.fetch(target_contig):
+        START_POS_OFFSET = 0
+
         hansel.n_slices += 1
 
         if read.is_duplicate or read.is_secondary:
             continue
 
-        # Check there is any support
         LEFTMOST_1pos = read.reference_start + 1 # Convert 0-based reference_start to 1-based position (to match region array and 1-based VCF)
-        support_len = sum(vcf_handler["region"][LEFTMOST_1pos: LEFTMOST_1pos+read.query_alignment_length])
+        if LEFTMOST_1pos < start_pos:
+            # Read starts before the start_pos
+            if read.reference_start + 1 + read.query_alignment_length < start_pos:
+                # Read ends before the start_pos
+                continue
+            LEFTMOST_1pos = start_pos
+            START_POS_OFFSET = (start_pos - (read.reference_start + 1))
+        elif LEFTMOST_1pos > end_pos:
+            # The BAM is sorted and this read begins after the end of the region of interest...
+            break
+
+        #RIGHTMOST_1pos = read.reference_start + 1 + read.query_alignment_length
+        RIGHTMOST_1pos = read.reference_end #ofc this is 1-indexed instead of 0
+        if RIGHTMOST_1pos > end_pos:
+            # Read ends after the end_pos
+            RIGHTMOST_1pos = end_pos
+
+        # Check there is any support
+        support_len = np.sum(vcf_handler["region"][LEFTMOST_1pos : RIGHTMOST_1pos + 1])
 
         # Ignore reads without evidence
         if support_len == 0:
             continue
 
-        rank = sum(vcf_handler["region"][0 : LEFTMOST_1pos])
-
-        support_seq = ""
+        rank = np.sum(vcf_handler["region"][1 : LEFTMOST_1pos])
+        support_seq = []
         for i in range(0, support_len):
-            offset = 0
             snp_rev = vcf_handler["snp_rev"][rank + i]
-            snp_pos_on_read = snp_rev - LEFTMOST_1pos
 
-            bases_observed = 0          # Bases observed via CIGAR so far
-            last_offsetting_op = 0      # Did we under or overshoot the target?
+            snp_pos_on_read = snp_rev - LEFTMOST_1pos + START_POS_OFFSET
 
-            for cigar in read.cigartuples:
-                # Current operation type and number of bases
-                op, count = cigar
-                bases_observed += count
+            aligned_residues = [x for x in read.get_aligned_pairs(with_seq=True) if x[1] is not None] # Filter out SOFTCLIP and INS
+            snp_pos_on_aligned_read = aligned_residues[snp_pos_on_read][0]
 
-                if op == 0:
-                    # Match
-                    pass
-                elif op == 1:
-                    # Insert
-                    #offset += count  # Bases appearing 'later' than expected
-                    #last_offsetting_op = op
-                    pass
-                elif op == 2:
-                    # Deletion
-                    #offset -= count  # Bases appearing 'earlier' than expected
-                    #last_offsetting_op = op
-                    pass
-                elif op == 4:
-                    # Soft Clip
-                    pass
-                else:
-                    raise Exception("Unsupported CIGAR Opcode (%d) Encountered on '%s'" % (op, read.qname))
+            try:
+                support_seq.append(read.query_sequence[snp_pos_on_aligned_read])
+            except TypeError:
+                sys.stderr.write("NoneType (DEL) found at SNP site on read '%s', reference position %d\n" % (read.qname, snp_rev))
+                support_seq.append("_")
 
-                if bases_observed >= snp_pos_on_read:  # TODO >= ?
-                    # Abort early if we find the target SNP site
-                    break
+        support_seq = "".join(support_seq)
 
-            # We should have overshot
-            if bases_observed >= snp_pos_on_read:
-                pass
-            else:
-                raise Exception("Failed to reach a SNP site (%d) on '%s'" % (snp_rev, read.qname))
+        support_seq_num += 1
+        support_seq_sum += len(support_seq.replace("N", "").replace("-", ""))
 
-            support_seq += read.query_alignment_sequence[snp_pos_on_read + offset]
-
-        support_seq_lens.append(len(support_seq.replace("N", "").replace("-", "")))
+        print read.reference_start + 1
 
         # For each position in the supporting sequence (that is, each covered SNP)
         for i in range(0, support_len):
@@ -164,10 +164,10 @@ def load_from_bam(hansel, bam, target_contig, vcf_handler, use_end_sentinels=Fal
                             hansel.add_observation(snp_b, "_", j+rank+1, j+rank+2)
 
 
-    meta["support_seq_lens"] = support_seq_lens
+    meta["support_seq_avg"] = support_seq_sum/float(support_seq_num)
     if hansel.L == 0:
         from math import ceil
-        hansel.L = int(ceil(np.mean(support_seq_lens))) #TODO
+        hansel.L = int(ceil(meta["support_seq_avg"])) #TODO
         sys.stderr.write("[NOTE] Setting Gretel.L to %d\n" % hansel.L)
     return meta
 

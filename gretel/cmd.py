@@ -89,7 +89,7 @@ def main():
     parser.add_argument("bam")
     parser.add_argument("vcf")
     parser.add_argument("contig")
-    #parser.add_argument("-s", "--start", type=int, default=1, help="1-indexed start base position [default: 1]")
+    parser.add_argument("-s", "--start", type=int, default=1, help="1-indexed start base position [default: 1]")
     parser.add_argument("-e", "--end", type=int, default=-1, help="1-indexed end base position [default: contig end]")
 
     parser.add_argument("-l", "--lorder", type=int, default=0, help="Order of markov chain to predict next nucleotide [default:1]")
@@ -103,8 +103,8 @@ def main():
 
     ARGS = parser.parse_args()
 
-    VCF_h = gretel.process_vcf(ARGS.vcf, ARGS.contig, 1, ARGS.end)
-    BAM_h = gretel.process_bam(VCF_h, ARGS.bam, ARGS.contig, ARGS.lorder, ARGS.sentinels)
+    VCF_h = gretel.process_vcf(ARGS.vcf, ARGS.contig, ARGS.start, ARGS.end)
+    BAM_h = gretel.process_bam(VCF_h, ARGS.bam, ARGS.contig, ARGS.start, ARGS.end, ARGS.lorder, ARGS.sentinels)
 
     #print "[META] #CONTIG", ARGS.contig
     #print "[META] #SNPS", VCF_h["N"]
@@ -197,7 +197,7 @@ def main():
                     print path, len(seq), snp_pos_on_master-1
                     sys.exit(1)
             fasta_out_fh.write(">%d__%.2f\n" % (i, PATH_PROBS[i]))
-            fasta_out_fh.write("%s\n" % "".join(seq))
+            fasta_out_fh.write("%s\n" % "".join(seq[ARGS.start-1 : ARGS.end]))
         fasta_out_fh.close()
 
     #TODO datetime, n_obs, n_slices, avg_obs_len, L, n_paths, n_avg_loglik
@@ -206,7 +206,7 @@ def main():
         VCF_h["N"],
         BAM_h["read_support"].n_crumbs,
         BAM_h["read_support"].n_slices,
-        np.mean(BAM_h["meta"]["support_seq_lens"]),
+        BAM_h["meta"]["support_seq_avg"],
         BAM_h["read_support"].L,
         np.mean(PATH_PROBS),
         np.mean(PATH_PROBS_UW),
