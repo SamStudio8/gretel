@@ -183,12 +183,12 @@ def main():
     # Make some pretty pictures
     dirn = ARGS.out + "/"
     if ARGS.master:
+
         master_fa = util.load_fasta(ARGS.master)
         master_seq = master_fa.fetch(master_fa.references[0])
         fasta_out_fh = open(dirn+"out.fasta", "w")
-
         for i, path in enumerate(PATHS):
-            seq = list(master_seq)
+            seq = list(master_seq[:])
             for j, mallele in enumerate(path[1:]):
                 snp_pos_on_master = VCF_h["snp_rev"][j]
                 try:
