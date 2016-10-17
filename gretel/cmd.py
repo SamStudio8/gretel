@@ -100,11 +100,12 @@ def main():
     parser.add_argument("--quiet", default=False, action='store_true', help="Don't output anything other than a single summary line.")
     parser.add_argument("--sentinels", default=False, action='store_true', help="Add additional sentinels for read ends [default:False][EXPERIMENTAL]")
     parser.add_argument("-o", "--out", default=".", help="Output directory [default .]")
+    parser.add_argument("-@", "--threads", type=int, default=1, help="Number of BAM iterators [default 1]")
 
     ARGS = parser.parse_args()
 
     VCF_h = gretel.process_vcf(ARGS.vcf, ARGS.contig, ARGS.start, ARGS.end)
-    BAM_h = gretel.process_bam(VCF_h, ARGS.bam, ARGS.contig, ARGS.start, ARGS.end, ARGS.lorder, ARGS.sentinels)
+    BAM_h = gretel.process_bam(VCF_h, ARGS.bam, ARGS.contig, ARGS.start, ARGS.end, ARGS.lorder, ARGS.sentinels, ARGS.threads)
 
     #print "[META] #CONTIG", ARGS.contig
     #print "[META] #SNPS", VCF_h["N"]

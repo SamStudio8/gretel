@@ -1,12 +1,28 @@
 import pysam
 import numpy as np
+import ctypes
+
+from multiprocessing import Process, Queue, Array
 import sys
+import multiprocessing, logging
+mpl = multiprocessing.log_to_stderr()
+mpl.setLevel(logging.INFO)
+
+def partition_snps(region, n_parts, start_1pos, end_1pos):
+    snps_in_window = sum(region) / float(n_parts-1)
+    curr_window = 0
+    window_positions = [start_1pos]
+    for curr_0pos, flag in enumerate(region[start_1pos-1 : end_1pos]):
+        curr_window += flag
+        if curr_window >= snps_in_window:
+            window_positions.append(curr_0pos+1) #TODO HELP
+            curr_window = 0
+    return window_positions
 
 #TODO SENTINEL SYMBOLS BEFORE AND AFTER A READ
 #TODO What happens if we traverse backwards...?
 #TODO Single SNP reads could use a pairwise observation with themselves? (A, A, i, i)
-
-def load_from_bam(hansel, bam, target_contig, start_pos, end_pos, vcf_handler, use_end_sentinels=False):
+def load_from_bam(h, bam, target_contig, start_pos, end_pos, vcf_handler, use_end_sentinels=False, n_threads=1):
     """
     Load variants observed in a :py:class:`pysam.AlignmentFile` to
     an instance of :py:class:`hansel.hansel.Hansel`.
@@ -43,6 +59,9 @@ def load_from_bam(hansel, bam, target_contig, start_pos, end_pos, vcf_handler, u
           scheme for reducing the observations that end at sentinels.
           This flag may be removed at any time without warning.
 
+    n_threads : int, optional(default=1)
+        Number of threads to spawn for reading the BAM
+
     Returns
     -------
     Metadata : dict{str, any}
@@ -63,112 +82,198 @@ def load_from_bam(hansel, bam, target_contig, start_pos, end_pos, vcf_handler, u
     meta = {}
     support_seq_sum = 0
     support_seq_num = 0
-    for read in bam.fetch(target_contig):
-        START_POS_OFFSET = 0
-
-        hansel.n_slices += 1
-
-        if read.is_duplicate or read.is_secondary:
-            continue
-
-        LEFTMOST_1pos = read.reference_start + 1 # Convert 0-based reference_start to 1-based position (to match region array and 1-based VCF)
-        if LEFTMOST_1pos < start_pos:
-            # Read starts before the start_pos
-            if read.reference_start + 1 + read.query_alignment_length < start_pos:
-                # Read ends before the start_pos
-                continue
-            LEFTMOST_1pos = start_pos
-            START_POS_OFFSET = (start_pos - (read.reference_start + 1))
-        elif LEFTMOST_1pos > end_pos:
-            # The BAM is sorted and this read begins after the end of the region of interest...
-            break
-
-        #RIGHTMOST_1pos = read.reference_start + 1 + read.query_alignment_length
-        RIGHTMOST_1pos = read.reference_end #ofc this is 1-indexed instead of 0
-        if RIGHTMOST_1pos > end_pos:
-            # Read ends after the end_pos
-            RIGHTMOST_1pos = end_pos
-
-        # Check there is any support
-        support_len = np.sum(vcf_handler["region"][LEFTMOST_1pos : RIGHTMOST_1pos + 1])
-
-        # Ignore reads without evidence
-        if support_len == 0:
-            continue
-
-        rank = np.sum(vcf_handler["region"][1 : LEFTMOST_1pos])
-        support_seq = []
-        for i in range(0, support_len):
-            snp_rev = vcf_handler["snp_rev"][rank + i]
-
-            snp_pos_on_read = snp_rev - LEFTMOST_1pos + START_POS_OFFSET
-
-            aligned_residues = [x for x in read.get_aligned_pairs(with_seq=True) if x[1] is not None] # Filter out SOFTCLIP and INS
-            snp_pos_on_aligned_read = aligned_residues[snp_pos_on_read][0]
-
-            try:
-                support_seq.append(read.query_sequence[snp_pos_on_aligned_read])
-            except TypeError:
-                sys.stderr.write("NoneType (DEL) found at SNP site on read '%s', reference position %d\n" % (read.qname, snp_rev))
-                support_seq.append("_")
-
-        support_seq = "".join(support_seq)
-
-        support_seq_num += 1
-        support_seq_sum += len(support_seq.replace("N", "").replace("-", ""))
-
-        print read.reference_start + 1
-
-        # For each position in the supporting sequence (that is, each covered SNP)
-        for i in range(0, support_len):
-            snp_a = support_seq[i]
-
-            #if support_len == 1:
-            #    if rank == 0:
-            #        hansel.add_observation('_', snp_a, 0, 1)
-            #        hansel.add_observation(snp_a, '_', 1, 2)
-            #    else:
-            #        hansel.add_observation(snp_a, '_', rank+1, rank+2)
 
 
-            # For each position in the supporting sequence following i
-            for j in range(i+1, support_len):
-                snp_b = support_seq[j]
+    hansel = np.frombuffer(Array(ctypes.c_float, 6 * 6 * (vcf_handler["N"]+2) * (vcf_handler["N"]+2), lock=False), dtype=ctypes.c_float)
+    hansel = hansel.reshape(6, 6, vcf_handler["N"]+2, vcf_handler["N"]+2)
+    hansel.fill(0.0)
 
-                # Ignore observations who are from an invalid transition
-                if snp_a in hansel.unsymbols:
+    import random
+    def progress_worker(progress_q, n_workers):
+        worker_status = []
+        worker_done = []
+        for _ in range(0, n_workers):
+            worker_status.append(0)
+            worker_done.append(0)
+
+        while sum(worker_done) < n_workers:
+            work_block = progress_q.get()
+            worker_status[work_block["worker_i"]] = work_block["pos"]
+            if not work_block["pos"]:
+                worker_done[work_block["worker_i"]] = 1
+                print [ worker_status[i] if status != 1 else None for (i, status) in enumerate(worker_done)]
+            if random.random() < 0.1:
+                print [ worker_status[i] if status != 1 else None for (i, status) in enumerate(worker_done)]
+
+    def bam_worker(bam_q, progress_q, worker_i):
+        def __symbol_num(symbol):
+            symbols = ['A', 'C', 'G', 'T', 'N', '_']
+            #TODO Catch potential IndexError
+            #TODO Generic mechanism for casing (considering non-alphabetically named states, too...)
+            return symbols.index(symbol)
+
+        #TODO n_slices
+        symbols = ['A', 'C', 'G', 'T', 'N', '_']
+        unsymbols = ['_', 'N']
+        worker = worker_i
+        while True:
+            work_block = bam_q.get()
+            if work_block is None:
+                progress_q.put({"pos": None, "worker_i": worker_i})
+                break
+
+            # TODO Handle the potential for reads to be parsed twice after we get the fucking mp bit working first
+            for read in bam.fetch(target_contig, start=work_block["start"]-1, end=work_block["end"], multiple_iterators=True):
+                START_POS_OFFSET = 0
+
+                if read.is_duplicate or read.is_secondary:
                     continue
 
-                # Sentinel->A
-                if i==0 and j==1 and rank==0:
-                    # If this is the first position in the support (support_pos == 0)
-                    # and rank > 0 (that is, this is not the first SNP)
-                    # and SNPs a, b are adjacent
-                    hansel.add_observation('_', snp_a, 0, 1)
-                    hansel.add_observation(snp_a, snp_b, 1, 2)
+                LEFTMOST_1pos = read.reference_start + 1 # Convert 0-based reference_start to 1-based position (to match region array and 1-based VCF)
+                RIGHTMOST_1pos = read.reference_end #ofc this is 1-indexed instead of 0
 
-                # B->Sentinel
-                elif (j+rank+1) == vcf_handler["N"] and abs(i-j)==1:
-                    # Last observation (abs(i-j)==1),
-                    # that ends on the final SNP (j+rank+1 == N)
-                    hansel.add_observation(snp_a, snp_b, vcf_handler["N"]-1, vcf_handler["N"])
-                    hansel.add_observation(snp_b, '_', vcf_handler["N"], vcf_handler["N"]+1)
+                # Special case: Consider reads that begin before the start_pos, but overlap the 0th block
+                if work_block["i"] == 0:
+                    if LEFTMOST_1pos < start_pos:
+                        # Read starts before the start_pos
+                        if read.reference_start + 1 + read.query_alignment_length < start_pos:
+                            # Read ends before the start_pos
+                            continue
 
-                # A regular observation (A->B)
+                        LEFTMOST_1pos = start_pos
+                        START_POS_OFFSET = (start_pos - (read.reference_start + 1))
+
                 else:
-                    hansel.add_observation(snp_a, snp_b, i+rank+1, j+rank+1)
+                    # This read begins before the start of the current (non-0) block
+                    # and will have already been covered by the block that preceded it
+                    if LEFTMOST_1pos < work_block["start"]:
+                        continue
 
-                    if use_end_sentinels:
-                        if j==(support_len-1) and abs(i-j)==1:
-                            # The last SNP on a read, needs a sentinel afterward
-                            hansel.add_observation(snp_b, "_", j+rank+1, j+rank+2)
+                # If the current read begins after the region of interest, stop parsing the sorted BAM
+                #if LEFTMOST_1pos > end_pos:
+                #    break
+
+                # Read ends after the end_pos of interest, so clip it
+                if RIGHTMOST_1pos > end_pos:
+                    RIGHTMOST_1pos = end_pos
+
+                # Check if the read actually covers any SNPs
+                support_len = np.sum(vcf_handler["region"][LEFTMOST_1pos : RIGHTMOST_1pos + 1])
+
+                # Ignore reads without evidence
+                if support_len == 0:
+                    continue
+
+                rank = np.sum(vcf_handler["region"][1 : LEFTMOST_1pos])
+                support_seq = []
+                for i in range(0, support_len):
+                    snp_rev = vcf_handler["snp_rev"][rank + i]
+
+                    snp_pos_on_read = snp_rev - LEFTMOST_1pos + START_POS_OFFSET
+
+                    aligned_residues = [x for x in read.get_aligned_pairs(with_seq=True) if x[1] is not None] # Filter out SOFTCLIP and INS
+                    snp_pos_on_aligned_read = aligned_residues[snp_pos_on_read][0]
+
+                    try:
+                        support_seq.append(read.query_sequence[snp_pos_on_aligned_read])
+                    except TypeError:
+                        sys.stderr.write("NoneType (DEL) found at SNP site on read '%s', reference position %d\n" % (read.qname, snp_rev))
+                        support_seq.append("_")
+
+                support_seq = "".join(support_seq)
+
+                #support_seq_num += 1
+                #support_seq_sum += len(support_seq.replace("N", "").replace("-", ""))
+
+                progress_q.put({"pos": read.reference_start + 1, "worker_i": worker_i})
+
+                # For each position in the supporting sequence (that is, each covered SNP)
+                for i in range(0, support_len):
+                    snp_a = support_seq[i]
+
+                    #if support_len == 1:
+                    #    if rank == 0:
+                    #        hansel.add_observation('_', snp_a, 0, 1)
+                    #        hansel.add_observation(snp_a, '_', 1, 2)
+                    #    else:
+                    #        hansel.add_observation(snp_a, '_', rank+1, rank+2)
 
 
-    meta["support_seq_avg"] = support_seq_sum/float(support_seq_num)
-    if hansel.L == 0:
-        from math import ceil
-        hansel.L = int(ceil(meta["support_seq_avg"])) #TODO
-        sys.stderr.write("[NOTE] Setting Gretel.L to %d\n" % hansel.L)
+                    # For each position in the supporting sequence following i
+                    for j in range(i+1, support_len):
+                        snp_b = support_seq[j]
+
+                        # Ignore observations who are from an invalid transition
+                        if snp_a in unsymbols:
+                            continue
+
+                        # Sentinel->A
+                        if i==0 and j==1 and rank==0:
+                            # If this is the first position in the support (support_pos == 0)
+                            # and rank > 0 (that is, this is not the first SNP)
+                            # and SNPs a, b are adjacent
+                            hansel[__symbol_num('_'), __symbol_num(snp_a), 0, 1] += 1
+                            hansel[__symbol_num(snp_a), __symbol_num(snp_b), 1, 2] += 1
+
+                        # B->Sentinel
+                        elif (j+rank+1) == vcf_handler["N"] and abs(i-j)==1:
+                            # Last observation (abs(i-j)==1),
+                            # that ends on the final SNP (j+rank+1 == N)
+                            hansel[__symbol_num(snp_a), __symbol_num(snp_b), vcf_handler["N"]-1, vcf_handler["N"]] += 1
+                            hansel[__symbol_num(snp_b), __symbol_num('_'), vcf_handler["N"], vcf_handler["N"]+1] += 1
+
+                        # A regular observation (A->B)
+                        else:
+                            hansel[__symbol_num(snp_a), __symbol_num(snp_b), i+rank+1, j+rank+1] += 1
+
+                            if use_end_sentinels:
+                                if j==(support_len-1) and abs(i-j)==1:
+                                    # The last SNP on a read, needs a sentinel afterward
+                                    hansel[__symbol_num(snp_b), __symbol_num('_'), j+rank+1, j+rank+2] += 1
+
+    bam_queue = Queue()
+    progress_queue = Queue()
+
+    # Queue the wokers
+    # TODO Evenly divide, but in future, consider the distn
+    window_l = int((end_pos - start_pos) / float(n_threads))
+    for window_i, window_pos in enumerate(range(start_pos, end_pos+1, window_l)):
+        bam_queue.put({
+            "start": window_pos,
+            "end": window_pos + window_l,
+            "i": window_i,
+        })
+
+    processes = []
+    for _ in range(n_threads):
+        p = Process(target=bam_worker,
+                    args=(bam_queue, progress_queue, _))
+        processes.append(p)
+
+    # ...and a progress process
+    p = Process(target=progress_worker,
+                args=(progress_queue, n_threads))
+    processes.append(p)
+
+    for p in processes:
+        p.start()
+
+    # Add sentinels
+    for _ in range(n_threads):
+        bam_queue.put(None)
+    #bam_queue.put(None)
+
+    # Wait for processes to complete work
+    for p in processes:
+        p.join()
+
+    #meta["support_seq_avg"] = support_seq_sum/float(support_seq_num)
+    meta["support_seq_avg"] = 10
+    meta["hansel"] = hansel
+    #if hansel.L == 0:
+    #    from math import ceil
+    #    hansel.L = int(ceil(meta["support_seq_avg"])) #TODO
+    #    sys.stderr.write("[NOTE] Setting Gretel.L to %d\n" % hansel.L)
     return meta
 
 def load_fasta(fa_path):

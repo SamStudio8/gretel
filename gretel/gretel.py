@@ -122,7 +122,7 @@ def process_vcf(vcf_path, contig_name, start_pos, end_pos):
         "region": region,
     }
 
-def process_bam(vcf_handler, bam_path, contig_name, start_pos, end_pos, L, use_end_sentinels):
+def process_bam(vcf_handler, bam_path, contig_name, start_pos, end_pos, L, use_end_sentinels, n_threads):
     """
     Initialise a Hansel structure and load variants from a BAM.
 
@@ -148,9 +148,12 @@ def process_bam(vcf_handler, bam_path, contig_name, start_pos, end_pos, L, use_e
         from the head of the current path (including the head) to consider
         when calculating conditional probabilities.
 
-    use_end_sentinels : boolean, optional(default=False)
+    use_end_sentinels : boolean
         Whether or not to append an additional pairwise observation between
         the final variant on a read towards a sentinel.
+
+    n_threads : int
+        Number of threads to spawn for reading the BAM
 
     Returns
     -------
@@ -170,10 +173,10 @@ def process_bam(vcf_handler, bam_path, contig_name, start_pos, end_pos, L, use_e
     #NOTE(samstudio8)
     # Could we optimise for lower triangle by collapsing one of the dimensions
     # such that Z[m][n][i][j] == Z[m][n][i + ((j-1)*(j))/2]
-    read_support_mat = np.zeros( (6, 6, vcf_handler["N"]+2, vcf_handler["N"]+2) )
-    hansel = Hansel(read_support_mat, ['A', 'C', 'G', 'T', 'N', "_"], ['N', "_"], L=L)
 
-    meta = util.load_from_bam(hansel, bam, contig_name, start_pos, end_pos, vcf_handler, use_end_sentinels)
+
+    meta = util.load_from_bam(None, bam, contig_name, start_pos, end_pos, vcf_handler, use_end_sentinels, n_threads)
+    hansel = Hansel(meta["hansel"], ['A', 'C', 'G', 'T', 'N', "_"], ['N', "_"], L=L)
 
     return {
         "read_support": hansel,
