@@ -178,6 +178,10 @@ def process_bam(vcf_handler, bam_path, contig_name, start_pos, end_pos, L, use_e
     meta = util.load_from_bam(None, bam, contig_name, start_pos, end_pos, vcf_handler, use_end_sentinels, n_threads)
     hansel = Hansel(meta["hansel"], ['A', 'C', 'G', 'T', 'N', "_"], ['N', "_"], L=L)
 
+    if hansel.L == 0:
+        hansel.L = meta["L"]
+        sys.stderr.write("[NOTE] Setting Gretel.L to %d\n" % hansel.L)
+
     return {
         "read_support": hansel,
         "read_support_o": hansel.copy(),

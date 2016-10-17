@@ -2,7 +2,6 @@ import argparse
 import numpy as np
 import sys
 
-from hansel import Hansel
 import gretel
 import util
 
@@ -207,7 +206,7 @@ def main():
         VCF_h["N"],
         BAM_h["read_support"].n_crumbs,
         BAM_h["read_support"].n_slices,
-        BAM_h["meta"]["support_seq_avg"],
+        BAM_h["meta"]["L"],
         BAM_h["read_support"].L,
         np.mean(PATH_PROBS),
         np.mean(PATH_PROBS_UW),

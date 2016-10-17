@@ -1,10 +1,12 @@
 import pysam
 import numpy as np
 import ctypes
+from math import ceil
 
-from multiprocessing import Process, Queue, Array
+from multiprocessing import Process, Queue, Array, Value
 import sys
 import multiprocessing, logging
+
 mpl = multiprocessing.log_to_stderr()
 mpl.setLevel(logging.INFO)
 
@@ -80,8 +82,6 @@ def load_from_bam(h, bam, target_contig, start_pos, end_pos, vcf_handler, use_en
     """
 
     meta = {}
-    support_seq_sum = 0
-    support_seq_num = 0
 
 
     hansel = np.frombuffer(Array(ctypes.c_float, 6 * 6 * (vcf_handler["N"]+2) * (vcf_handler["N"]+2), lock=False), dtype=ctypes.c_float)
@@ -89,21 +89,25 @@ def load_from_bam(h, bam, target_contig, start_pos, end_pos, vcf_handler, use_en
     hansel.fill(0.0)
 
     import random
-    def progress_worker(progress_q, n_workers):
-        worker_status = []
+    def progress_worker(progress_q, n_workers, slices, total_snps):
+        worker_pos = []
         worker_done = []
         for _ in range(0, n_workers):
-            worker_status.append(0)
+            worker_pos.append(0)
             worker_done.append(0)
 
         while sum(worker_done) < n_workers:
             work_block = progress_q.get()
-            worker_status[work_block["worker_i"]] = work_block["pos"]
+            worker_pos[work_block["worker_i"]] = work_block["pos"]
             if not work_block["pos"]:
                 worker_done[work_block["worker_i"]] = 1
-                print [ worker_status[i] if status != 1 else None for (i, status) in enumerate(worker_done)]
+
+                slices.value += work_block["slices"]
+                total_snps.value += work_block["covered_snps"]
+                print [ worker_pos[i] if status != 1 else None for (i, status) in enumerate(worker_done)]
             if random.random() < 0.1:
-                print [ worker_status[i] if status != 1 else None for (i, status) in enumerate(worker_done)]
+                print [ worker_pos[i] if status != 1 else None for (i, status) in enumerate(worker_done)]
+        return (slices, total_snps)
 
     def bam_worker(bam_q, progress_q, worker_i):
         def __symbol_num(symbol):
@@ -112,18 +116,27 @@ def load_from_bam(h, bam, target_contig, start_pos, end_pos, vcf_handler, use_en
             #TODO Generic mechanism for casing (considering non-alphabetically named states, too...)
             return symbols.index(symbol)
 
-        #TODO n_slices
         symbols = ['A', 'C', 'G', 'T', 'N', '_']
         unsymbols = ['_', 'N']
         worker = worker_i
+
+        slices = 0
+        covered_snps = 0
+
         while True:
             work_block = bam_q.get()
             if work_block is None:
-                progress_q.put({"pos": None, "worker_i": worker_i})
+                progress_q.put({
+                    "pos": None,
+                    "worker_i": worker_i,
+                    "slices": slices,
+                    "covered_snps": covered_snps,
+                })
                 break
 
             # TODO Handle the potential for reads to be parsed twice after we get the fucking mp bit working first
             for read in bam.fetch(target_contig, start=work_block["start"]-1, end=work_block["end"], multiple_iterators=True):
+
                 START_POS_OFFSET = 0
 
                 if read.is_duplicate or read.is_secondary:
@@ -164,6 +177,8 @@ def load_from_bam(h, bam, target_contig, start_pos, end_pos, vcf_handler, use_en
                 if support_len == 0:
                     continue
 
+                slices += 1
+
                 rank = np.sum(vcf_handler["region"][1 : LEFTMOST_1pos])
                 support_seq = []
                 for i in range(0, support_len):
@@ -181,9 +196,7 @@ def load_from_bam(h, bam, target_contig, start_pos, end_pos, vcf_handler, use_en
                         support_seq.append("_")
 
                 support_seq = "".join(support_seq)
-
-                #support_seq_num += 1
-                #support_seq_sum += len(support_seq.replace("N", "").replace("-", ""))
+                covered_snps += len(support_seq.replace("N", "").replace("-", ""))
 
                 progress_q.put({"pos": read.reference_start + 1, "worker_i": worker_i})
 
@@ -251,8 +264,10 @@ def load_from_bam(h, bam, target_contig, start_pos, end_pos, vcf_handler, use_en
         processes.append(p)
 
     # ...and a progress process
+    n_reads = Value('i', 0)
+    total_covered_snps = Value('i', 0)
     p = Process(target=progress_worker,
-                args=(progress_queue, n_threads))
+                args=(progress_queue, n_threads, n_reads, total_covered_snps))
     processes.append(p)
 
     for p in processes:
@@ -261,19 +276,13 @@ def load_from_bam(h, bam, target_contig, start_pos, end_pos, vcf_handler, use_en
     # Add sentinels
     for _ in range(n_threads):
         bam_queue.put(None)
-    #bam_queue.put(None)
 
     # Wait for processes to complete work
     for p in processes:
         p.join()
 
-    #meta["support_seq_avg"] = support_seq_sum/float(support_seq_num)
-    meta["support_seq_avg"] = 10
     meta["hansel"] = hansel
-    #if hansel.L == 0:
-    #    from math import ceil
-    #    hansel.L = int(ceil(meta["support_seq_avg"])) #TODO
-    #    sys.stderr.write("[NOTE] Setting Gretel.L to %d\n" % hansel.L)
+    meta["L"] = int(ceil(float(total_covered_snps.value)/n_reads.value))
     return meta
 
 def load_fasta(fa_path):
