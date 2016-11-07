@@ -9,8 +9,6 @@ import numpy as np
 from hansel import Hansel
 import util
 
-#TODO Look at some SNPs outside the gene...
-#TODO Reimplement SNP ladder generator with new matrix format
 #TODO Should the denom of the conditional use the unique variants at i-l or i?
 #TODO Util to parse known input and return SNP seq
 
