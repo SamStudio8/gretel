@@ -104,9 +104,9 @@ def load_from_bam(h, bam, target_contig, start_pos, end_pos, vcf_handler, use_en
 
                 slices.value += work_block["slices"]
                 total_snps.value += work_block["covered_snps"]
-                print [ worker_pos[i] if status != 1 else None for (i, status) in enumerate(worker_done)]
+                sys.stderr.write("%s\n" % ([ worker_pos[i] if status != 1 else None for (i, status) in enumerate(worker_done)]))
             if random.random() < 0.1:
-                print [ worker_pos[i] if status != 1 else None for (i, status) in enumerate(worker_done)]
+                sys.stderr.write("%s\n" % ([ worker_pos[i] if status != 1 else None for (i, status) in enumerate(worker_done)]))
         return (slices, total_snps)
 
     def bam_worker(bam_q, progress_q, worker_i):
@@ -134,7 +134,6 @@ def load_from_bam(h, bam, target_contig, start_pos, end_pos, vcf_handler, use_en
                 })
                 break
 
-            # TODO Handle the potential for reads to be parsed twice after we get the fucking mp bit working first
             for read in bam.fetch(target_contig, start=work_block["start"]-1, end=work_block["end"], multiple_iterators=True):
 
                 START_POS_OFFSET = 0
