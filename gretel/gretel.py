@@ -57,6 +57,7 @@ def reweight_hansel_from_path(hansel, path, ratio):
                     t_i = i
                     t_j = j
                 size += hansel.reweight_observation(path[t_i], path[t_j], t_i, t_j, ratio)
+    sys.stderr.write("[REWT] Ratio %.3f, Removed %.1f\n" % (ratio, size))
     return size
 
 
@@ -166,14 +167,13 @@ def process_bam(vcf_handler, bam_path, contig_name, start_pos, end_pos, L, use_e
                 A dictionary of metadata returned from the BAM parsing, such as
                 a list of the number of variants that each read spans.
     """
-    bam = pysam.AlignmentFile(bam_path)
 
     #NOTE(samstudio8)
     # Could we optimise for lower triangle by collapsing one of the dimensions
     # such that Z[m][n][i][j] == Z[m][n][i + ((j-1)*(j))/2]
 
 
-    meta = util.load_from_bam(None, bam, contig_name, start_pos, end_pos, vcf_handler, use_end_sentinels, n_threads)
+    meta = util.load_from_bam(None, bam_path, contig_name, start_pos, end_pos, vcf_handler, use_end_sentinels, n_threads)
     hansel = Hansel(meta["hansel"], ['A', 'C', 'G', 'T', 'N', "_"], ['N', "_"], L=L)
 
     if hansel.L == 0:
@@ -258,14 +258,14 @@ def generate_path(n_snps, hansel, original_hansel):
     # Find path
     sys.stderr.write("*** ESTABLISH ***\n")
     for snp in range(1, n_snps+1):
-        sys.stderr.write("\t*** ***\n")
-        sys.stderr.write("\t[SNP_] SNP %d\n" % snp)
+        #sys.stderr.write("\t*** ***\n")
+        #sys.stderr.write("\t[SNP_] SNP %d\n" % snp)
 
         # Get marginal and calculate branch probabilities for each available
         # mallele, given the current path seen so far
         # Select the next branch and append it to the path
         curr_branches = hansel.get_edge_weights_at(snp, current_path)
-        sys.stderr.write("\t[TREE] %s\n" % curr_branches)
+        #sys.stderr.write("\t[TREE] %s\n" % curr_branches)
         # Return the symbol and probability of the next base to add to the
         # current path based on the best marginal
         next_v = 0.0
