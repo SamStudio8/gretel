@@ -166,8 +166,8 @@ def load_from_bam(h, bam, target_contig, start_pos, end_pos, vcf_handler, use_en
                 #    break
 
                 # Read ends after the end_pos of interest, so clip it
-                if RIGHTMOST_1pos > end_pos:
-                    RIGHTMOST_1pos = end_pos
+                if RIGHTMOST_1pos > work_block["region_end"]:
+                    RIGHTMOST_1pos = work_block["region_end"]
 
                 # Check if the read actually covers any SNPs
                 support_len = np.sum(vcf_handler["region"][LEFTMOST_1pos : RIGHTMOST_1pos + 1])
@@ -180,12 +180,12 @@ def load_from_bam(h, bam, target_contig, start_pos, end_pos, vcf_handler, use_en
 
                 rank = np.sum(vcf_handler["region"][1 : LEFTMOST_1pos])
                 support_seq = []
+
+                aligned_residues = [x for x in read.get_aligned_pairs(with_seq=True) if x[1] is not None] # Filter out SOFTCLIP and INS
                 for i in range(0, support_len):
                     snp_rev = vcf_handler["snp_rev"][rank + i]
 
                     snp_pos_on_read = snp_rev - LEFTMOST_1pos + START_POS_OFFSET
-
-                    aligned_residues = [x for x in read.get_aligned_pairs(with_seq=True) if x[1] is not None] # Filter out SOFTCLIP and INS
                     snp_pos_on_aligned_read = aligned_residues[snp_pos_on_read][0]
 
                     try:
@@ -254,6 +254,7 @@ def load_from_bam(h, bam, target_contig, start_pos, end_pos, vcf_handler, use_en
             "start": window_pos,
             "end": window_pos + window_l,
             "i": window_i,
+            "region_end": end_pos,
         })
 
     processes = []
