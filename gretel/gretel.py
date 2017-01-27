@@ -57,7 +57,7 @@ def reweight_hansel_from_path(hansel, path, ratio):
                     t_i = i
                     t_j = j
                 size += hansel.reweight_observation(path[t_i], path[t_j], t_i, t_j, ratio)
-    sys.stderr.write("[REWT] Ratio %.3f, Removed %.1f\n" % (ratio, size))
+    sys.stderr.write("[RWGT] Ratio %.3f, Removed %.1f\n" % (ratio, size))
     return size
 
 
@@ -174,7 +174,7 @@ def process_bam(vcf_handler, bam_path, contig_name, start_pos, end_pos, L, use_e
 
 
     meta = util.load_from_bam(None, bam_path, contig_name, start_pos, end_pos, vcf_handler, use_end_sentinels, n_threads)
-    hansel = Hansel(meta["hansel"], ['A', 'C', 'G', 'T', 'N', "_"], ['N', "_"], L=L)
+    hansel = Hansel(meta["hansel"], ['A', 'C', 'G', 'T', 'N', "-", "_"], ['N', "_"], L=L)
 
     if hansel.L == 0:
         hansel.L = meta["L"]

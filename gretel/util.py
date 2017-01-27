@@ -84,8 +84,8 @@ def load_from_bam(h, bam_path, target_contig, start_pos, end_pos, vcf_handler, u
     meta = {}
 
 
-    hansel = np.frombuffer(Array(ctypes.c_float, 6 * 6 * (vcf_handler["N"]+2) * (vcf_handler["N"]+2), lock=False), dtype=ctypes.c_float)
-    hansel = hansel.reshape(6, 6, vcf_handler["N"]+2, vcf_handler["N"]+2)
+    hansel = np.frombuffer(Array(ctypes.c_float, 7 * 7 * (vcf_handler["N"]+2) * (vcf_handler["N"]+2), lock=False), dtype=ctypes.c_float)
+    hansel = hansel.reshape(7, 7, vcf_handler["N"]+2, vcf_handler["N"]+2)
     hansel.fill(0.0)
 
     import random
@@ -110,13 +110,13 @@ def load_from_bam(h, bam_path, target_contig, start_pos, end_pos, vcf_handler, u
         return (slices, total_snps)
 
     def bam_worker(bam_q, progress_q, worker_i):
+        symbols = ['A', 'C', 'G', 'T', 'N', '-', '_']
+        symbols_d = {symbol: i for i, symbol in enumerate(symbols)}
         def __symbol_num(symbol):
-            symbols = ['A', 'C', 'G', 'T', 'N', '_']
-            #TODO Catch potential IndexError
+            #TODO Catch potential KeyError
             #TODO Generic mechanism for casing (considering non-alphabetically named states, too...)
-            return symbols.index(symbol)
+            return symbols_d[symbol]
 
-        symbols = ['A', 'C', 'G', 'T', 'N', '_']
         unsymbols = ['_', 'N']
         worker = worker_i
 
@@ -134,7 +134,6 @@ def load_from_bam(h, bam_path, target_contig, start_pos, end_pos, vcf_handler, u
                     "covered_snps": covered_snps,
                 })
                 break
-
 
             reads = {}
             for p_col in bam.pileup(reference=target_contig, start=work_block["start"]-1, end=work_block["end"]):
@@ -165,21 +164,12 @@ def load_from_bam(h, bam_path, target_contig, start_pos, end_pos, vcf_handler, u
                                 # Read ends before the start_pos
                                 continue
                             LEFTMOST_1pos = start_pos
+                            #continue
                     else:
                         # This read begins before the start of the current (non-0) block
                         # and will have already been covered by the block that preceded it
                         if LEFTMOST_1pos < work_block["start"]:
                             continue
-
-                    if curr_read_name not in reads:
-                        reads[curr_read_name] = {
-                            "rank": np.sum(vcf_handler["region"][1 : LEFTMOST_1pos]),
-                            "seq": [],
-                            "quals": [],
-                            "refs_1pos": [],
-                            "read_variants_0pos": [],
-                        }
-
 
                     ## Read ends after the end_pos of interest, so clip it
                     #if RIGHTMOST_1pos > work_block["region_end"]:
@@ -187,11 +177,10 @@ def load_from_bam(h, bam_path, target_contig, start_pos, end_pos, vcf_handler, u
 
                     sequence = None
                     qual = None
-                    if not p_read.query_position:
-                        # qpos is None for deletion and reference skips
+                    if p_read.is_del:
                         # TODO Not sure about how to estimate quality of deletion?
-                        sequence = "_" * abs(p_read.indel)
-                        qual = p_read.alignment.query_qualities[p_read.query_position_or_next] * abs(p_read.indel)
+                        sequence = "-" * (abs(p_read.indel) + 1)
+                        qual = p_read.alignment.query_qualities[p_read.query_position_or_next] * (abs(p_read.indel) + 1)
                     elif p_read.indel > 0:
                         sequence = p_read.alignment.query_sequence[p_read.query_position : p_read.query_position + p_read.indel + 1]
                         qual = p_read.alignment.query_qualities[p_read.query_position : p_read.query_position + p_read.indel + 1]
@@ -203,6 +192,14 @@ def load_from_bam(h, bam_path, target_contig, start_pos, end_pos, vcf_handler, u
                         print("Help!")
                         continue
 
+                    if curr_read_name not in reads:
+                        reads[curr_read_name] = {
+                            "rank": np.sum(vcf_handler["region"][1 : LEFTMOST_1pos]),
+                            "seq": [],
+                            "quals": [],
+                            "refs_1pos": [],
+                            "read_variants_0pos": [],
+                        }
                     reads[curr_read_name]["seq"].append(sequence)
                     reads[curr_read_name]["quals"].append(qual)
                     reads[curr_read_name]["refs_1pos"].append(p_col.reference_pos+1)
@@ -213,9 +210,9 @@ def load_from_bam(h, bam_path, target_contig, start_pos, end_pos, vcf_handler, u
 
             num_reads = len(reads)
             for qi, qname in enumerate(reads):
-                progress_q.put({"pos": num_reads-qi, "worker_i": worker_i})
+                progress_q.put({"pos": num_reads-(qi+1), "worker_i": worker_i})
 
-                if not len(reads[qname]["seq"]) > 0:
+                if not len(reads[qname]["seq"]) > 1:
                     # Ignore reads without evidence
                     continue
                 slices += 1
@@ -223,9 +220,9 @@ def load_from_bam(h, bam_path, target_contig, start_pos, end_pos, vcf_handler, u
                 rank = reads[qname]["rank"]
                 support_len = len(reads[qname]["seq"])
 
-                # TODO Still not really sure how to handle indels, our matrix is designed for single symbols... :<
+                # TODO Still not really sure how to handle insertions, our matrix is a bit size-inefficient atm
                 support_seq = "".join([b[0] for b in reads[qname]["seq"]])
-                covered_snps += len(support_seq.replace("N", "").replace("-", ""))
+                covered_snps += len(support_seq.replace("N", "").replace("_", ""))
 
                 # For each position in the supporting sequence (that is, each covered SNP)
                 for i in range(0, support_len):
@@ -276,6 +273,7 @@ def load_from_bam(h, bam_path, target_contig, start_pos, end_pos, vcf_handler, u
 
     # Queue the wokers
     # TODO Evenly divide, but in future, consider the distn
+    # TODO Also consider in general block0 has more work to do
     window_l = int((end_pos - start_pos) / float(n_threads))
     for window_i, window_pos in enumerate(range(start_pos, end_pos+1, window_l)):
         bam_queue.put({

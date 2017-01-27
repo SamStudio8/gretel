@@ -122,18 +122,19 @@ def main():
         "G": [],
         "T": [],
         "N": [],
+        "-": [],
         "_": [],
         "total": [],
     }
     if not ARGS.quiet:
-        print "i\tpos\tgap\tA\tC\tG\tT\tN\t_\ttot"
+        print "i\tpos\tgap\tA\tC\tG\tT\tN\t-\t_\ttot"
         last_rev = 0
         for i in range(0, VCF_h["N"]+1):
             marginal = BAM_h["read_support"].get_counts_at(i)
             snp_rev = 0
             if i > 0:
                 snp_rev = VCF_h["snp_rev"][i-1]
-            print "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d" % (
+            print "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d" % (
                 i,
                 snp_rev,
                 snp_rev - last_rev,
@@ -142,6 +143,7 @@ def main():
                 marginal.get("G", 0),
                 marginal.get("T", 0),
                 marginal.get("N", 0),
+                marginal.get("-", 0),
                 marginal.get("_", 0),
                 marginal.get("total", 0),
             )
@@ -150,6 +152,7 @@ def main():
             all_marginals["G"].append(marginal.get("G", 0))
             all_marginals["T"].append(marginal.get("T", 0))
             all_marginals["N"].append(marginal.get("N", 0))
+            all_marginals["-"].append(marginal.get("-", 0))
             all_marginals["_"].append(marginal.get("_", 0))
             all_marginals["total"].append(
                 marginal.get("total", 0)
@@ -165,6 +168,11 @@ def main():
         if init_path == None:
             break
         current_path = init_path
+
+        MIN_REMOVE = 0.01 # 1%
+        if init_min < MIN_REMOVE:
+            sys.stderr.write("[RWGT] Ratio %.10f too small, adjusting to %.3f\n" % (init_min, MIN_REMOVE))
+            init_min = MIN_REMOVE
         rw_magnitude = gretel.reweight_hansel_from_path(BAM_h["read_support"], init_path, init_min)
 
         #TODO Horribly inefficient.
@@ -192,7 +200,11 @@ def main():
             for j, mallele in enumerate(path[1:]):
                 snp_pos_on_master = VCF_h["snp_rev"][j]
                 try:
-                    seq[snp_pos_on_master-1] = mallele
+                    if mallele == "-":
+                        # It's a deletion, don't print a SNP
+                        seq[snp_pos_on_master-1] = ""
+                    else:
+                        seq[snp_pos_on_master-1] = mallele
                 except IndexError:
                     print path, len(seq), snp_pos_on_master-1
                     sys.exit(1)
