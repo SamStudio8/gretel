@@ -99,7 +99,7 @@ def load_from_bam(h, bam_path, target_contig, start_pos, end_pos, vcf_handler, u
         while sum(worker_done) < n_workers:
             work_block = progress_q.get()
             worker_pos[work_block["worker_i"]] = work_block["pos"]
-            if not work_block["pos"]:
+            if work_block["pos"] is None:
                 worker_done[work_block["worker_i"]] = 1
 
                 slices.value += work_block["slices"]
