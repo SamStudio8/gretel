@@ -8,7 +8,6 @@ requirements = [
     "hanselx",
     "pysam",
     "PyVCF",
-    "matplotlib",
 ]
 
 test_requirements = [
