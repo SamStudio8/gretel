@@ -194,6 +194,9 @@ def process_bam(vcf_handler, bam_path, contig_name, start_pos, end_pos, L, use_e
 def append_path(path, next_m, next_v):
     """
     Append a selected variant to a given path.
+    .. deprecated:: 1.0
+        This method is somewhat of a stub.
+        It is likely to be deprecated at no notice in future.
 
     Parameters
     ----------
@@ -211,9 +214,6 @@ def append_path(path, next_m, next_v):
     Exception
         Raised if `next_m` is None.
 
-    .. deprecated:: 1.0
-        This method is somewhat of a stub.
-        It is likely to be deprecated at no notice in future.
     """
     #TODO(samstudio8) This is somewhat of a pointless stub, now.
     #TODO(samstudio8) Probably a bit gross as it has side effects on path...
