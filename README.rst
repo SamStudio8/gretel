@@ -58,8 +58,6 @@ You will require a sorted BAM containing your reads, aligned to some pseudo-refe
 You can use any sequence as your reference, such as a consensus assembly of the
 metagenomic reads, or a known strain reference (such as HIV-1).
 You must bgzip and tabix your VCF.
-To output haplotypes, you must provide the "master" reference to which your reads were
-aligned as a FASTA.
 
 ::
 

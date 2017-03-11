@@ -49,8 +49,11 @@ As described in the README, Gretel is invoked as follows: ::
 You must provide your sorted BAM, compressed VCF, and the name of the contig on which
 to recover haplotypes. Use `-s` and `-e` to specify the positions on the aligned reads between which
 to recover haplotypes from your metagenome.
-While it appears to be optional, to output haplotypes you must provide the psuedo-reference used to align the reads against,
-as a FASTA.
+
+By default, Gretel will output a FASTA containing the recovered SNPs, in order, for each haplotype.
+Providing an optional "master" FASTA sequence will permit Gretel to "fill in" the non-SNP positions
+(*i.e.* the positions between `-s` and `-e` that do not appear in the VCF) with the nucleotide from
+the pseudo-reference.
 
 Gretel Outputs
 --------------

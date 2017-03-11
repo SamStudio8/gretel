@@ -7,34 +7,17 @@ from multiprocessing import Process, Queue, Array, Value
 import sys
 import multiprocessing, logging
 
-mpl = multiprocessing.log_to_stderr()
-mpl.setLevel(logging.INFO)
+#mpl = multiprocessing.log_to_stderr()
+#mpl.setLevel(logging.INFO)
 
-def partition_snps(region, n_parts, start_1pos, end_1pos):
-    snps_in_window = sum(region) / float(n_parts-1)
-    curr_window = 0
-    window_positions = [start_1pos]
-    for curr_0pos, flag in enumerate(region[start_1pos-1 : end_1pos]):
-        curr_window += flag
-        if curr_window >= snps_in_window:
-            window_positions.append(curr_0pos+1) #TODO HELP
-            curr_window = 0
-    return window_positions
-
-#TODO SENTINEL SYMBOLS BEFORE AND AFTER A READ
-#TODO What happens if we traverse backwards...?
-#TODO Single SNP reads could use a pairwise observation with themselves? (A, A, i, i)
-def load_from_bam(h, bam_path, target_contig, start_pos, end_pos, vcf_handler, use_end_sentinels=False, n_threads=1):
+def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_end_sentinels=False, n_threads=1):
     """
     Load variants observed in a :py:class:`pysam.AlignmentFile` to
     an instance of :py:class:`hansel.hansel.Hansel`.
 
     Parameters
     ----------
-    hansel : :py:class:`hansel.hansel.Hansel`
-        An initialised instance of the `Hansel` data structure.
-
-    bam : str
+    bam_path : str
         Path to the BAM alignment
 
     target_contig : str
@@ -57,8 +40,7 @@ def load_from_bam(h, bam_path, target_contig, start_pos, end_pos, vcf_handler, u
           This feature is for testing purposes, currently it is recommended
           that the flag be left at the default of `False`. However, some
           data sets report minor performance improvements for some haplotypes
-          when set to `True`. Currently there is no applicable re-weighting
-          scheme for reducing the observations that end at sentinels.
+          when set to `True`.
           This flag may be removed at any time without warning.
 
     n_threads : int, optional(default=1)
@@ -70,19 +52,9 @@ def load_from_bam(h, bam_path, target_contig, start_pos, end_pos, vcf_handler, u
         A dictionary of metadata that may come in useful later.
         Primarily used to return a list of integers describing the number of
         variants covered by each read in the provided alignment BAM.
-
-    Raises
-    ------
-    Exception
-        Aborts if an unsupported CIGAR operation is encountered.
-        Currently supports Match, Insert, Delete, Soft Clip.
-    Exception
-        Aborts if a SNP site is not reached when parsing the CIGAR for a read that
-        should overlap that position.
     """
 
     meta = {}
-
 
     hansel = np.frombuffer(Array(ctypes.c_float, 7 * 7 * (vcf_handler["N"]+2) * (vcf_handler["N"]+2), lock=False), dtype=ctypes.c_float)
     hansel = hansel.reshape(7, 7, vcf_handler["N"]+2, vcf_handler["N"]+2)
@@ -194,7 +166,7 @@ def load_from_bam(h, bam_path, target_contig, start_pos, end_pos, vcf_handler, u
                         qual = p_read.alignment.query_qualities[p_read.query_position]
 
                     if not sequence:
-                        print("Help!")
+                        print("[WARN] Sequence data seems to not be correctly salvaged from read %s" % p_read.alignment.query_name)
                         continue
 
                     if curr_read_name not in reads:
@@ -209,9 +181,6 @@ def load_from_bam(h, bam_path, target_contig, start_pos, end_pos, vcf_handler, u
                     reads[curr_read_name]["quals"].append(qual)
                     reads[curr_read_name]["refs_1pos"].append(p_col.reference_pos+1)
                     reads[curr_read_name]["read_variants_0pos"].append(p_read.query_position)
-
-            print("DONE")
-
 
             num_reads = len(reads)
             for qi, qname in enumerate(reads):

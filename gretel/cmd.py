@@ -114,7 +114,6 @@ def main():
     # Make some pretty pictures
     dirn = ARGS.out + "/"
     if ARGS.master:
-
         master_fa = util.load_fasta(ARGS.master)
         master_seq = master_fa.fetch(master_fa.references[0])
         fasta_out_fh = open(dirn+"out.fasta", "w")
@@ -133,6 +132,12 @@ def main():
                     sys.exit(1)
             fasta_out_fh.write(">%d__%.2f\n" % (i, PATH_PROBS[i]))
             fasta_out_fh.write("%s\n" % "".join(seq[ARGS.start-1 : ARGS.end]))
+        fasta_out_fh.close()
+    else:
+        fasta_out_fh = open(dirn+"out.fasta", "w")
+        for i, path in enumerate(PATHS):
+            fasta_out_fh.write(">%d__%.2f\n" % (i, PATH_PROBS[i]))
+            fasta_out_fh.write("%s\n" % "".join("".join(path[1:])))
         fasta_out_fh.close()
 
     #TODO datetime, n_obs, n_slices, avg_obs_len, L, n_paths, n_avg_loglik
