@@ -296,7 +296,7 @@ def generate_path(n_snps, hansel, original_hansel):
 #TODO testing
         else:
             selected_edge_weight = hansel.get_marginal_of_at(next_m, snp)
-            marginals.append(selected_edge_weight) #TODO This isn't a log, is it accurate enough later?
+            marginals.append(selected_edge_weight) #NOTE This isn't a log, as it is used as a ratio later
 
             running_prob += log10(selected_edge_weight)
             running_prob_uw += log10(original_hansel.get_marginal_of_at(next_m, snp))

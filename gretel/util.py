@@ -146,14 +146,15 @@ def load_from_bam(h, bam_path, target_contig, start_pos, end_pos, vcf_handler, u
 
                 for p_read in p_col.pileups:
 
-                    curr_read_1or2 = None
+                    curr_read_1or2 = 0
                     if p_read.alignment.is_paired:
                         if p_read.alignment.is_read1:
                             curr_read_1or2 = 1
                         elif p_read.alignment.is_read2:
                             curr_read_1or2 = 2
-                    else:
-                        curr_read_1or2 = 0
+                        else:
+                            #TODO Probably indicative of bad data
+                            pass
 
 
                     curr_read_name = "%s_%d" % (p_read.alignment.query_name, curr_read_1or2)
