@@ -233,13 +233,13 @@ def load_from_bam(h, bam_path, target_contig, start_pos, end_pos, vcf_handler, u
                 for i in range(0, support_len):
                     snp_a = support_seq[i]
 
-                    #if support_len == 1:
-                    #    if rank == 0:
-                    #        hansel.add_observation('_', snp_a, 0, 1)
-                    #        hansel.add_observation(snp_a, '_', 1, 2)
-                    #    else:
-                    #        hansel.add_observation(snp_a, '_', rank+1, rank+2)
-
+                    if support_len == 1:
+                        if use_end_sentinels:
+                            if rank == 0:
+                                hansel[__symbol_num('_'), __symbol_num(snp_a), 0, 1] += 1
+                                hansel[__symbol_num(snp_a), __symbol_num('_'), 1, 2] += 1
+                            else:
+                                hansel[__symbol_num(snp_a), __symbol_num('_'), rank+1, rank+2] += 1
 
                     # For each position in the supporting sequence following i
                     for j in range(i+1, support_len):

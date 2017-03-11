@@ -45,6 +45,7 @@ def reweight_hansel_from_path(hansel, path, ratio):
             # Reduce read supports
             if i >= len(path)-1:
                 size += hansel.reweight_observation(path[i], path[j], i, i+1, ratio)
+                size += hansel.reweight_observation('_', path[j], i, i+1, ratio)
                 break #???
             else:
                 if j < i:
@@ -57,6 +58,7 @@ def reweight_hansel_from_path(hansel, path, ratio):
                     t_i = i
                     t_j = j
                 size += hansel.reweight_observation(path[t_i], path[t_j], t_i, t_j, ratio)
+                size += hansel.reweight_observation(path[t_i], '_', t_i, t_j, ratio)
     sys.stderr.write("[RWGT] Ratio %.3f, Removed %.1f\n" % (ratio, size))
     return size
 
