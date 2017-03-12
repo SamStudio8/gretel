@@ -15,7 +15,7 @@ import util
 def reweight_hansel_from_path(hansel, path, ratio):
     #TODO Reweight only the L pairs?
     """
-    Given a completed path (haplotype), reweight the applicable pairwise observations in the Hansel structure.
+    Given a completed path, reweight the applicable pairwise observations in the Hansel structure.
 
     Parameters
     ----------
@@ -26,7 +26,10 @@ def reweight_hansel_from_path(hansel, path, ratio):
         The ordered sequence of selected variants.
 
     ratio : float
-        The smallest marginal distribution observed across selected variants.
+        The proportion of evidence to remove from each paired observation that
+        was considered to recover the provided path.
+
+        It is recommended this be the smallest marginal distribution observed across selected variants.
 
         *i.e.* For each selected variant in the path, note the value of the
         marginal distribution for the probability of observing that particular
@@ -175,7 +178,7 @@ def process_bam(vcf_handler, bam_path, contig_name, start_pos, end_pos, L, use_e
     # such that Z[m][n][i][j] == Z[m][n][i + ((j-1)*(j))/2]
 
 
-    meta = util.load_from_bam(None, bam_path, contig_name, start_pos, end_pos, vcf_handler, use_end_sentinels, n_threads)
+    meta = util.load_from_bam(bam_path, contig_name, start_pos, end_pos, vcf_handler, use_end_sentinels, n_threads)
     hansel = Hansel(meta["hansel"], ['A', 'C', 'G', 'T', 'N', "-", "_"], ['N', "_"], L=L)
 
     if hansel.L == 0:
@@ -193,6 +196,9 @@ def process_bam(vcf_handler, bam_path, contig_name, start_pos, end_pos, L, use_e
 def append_path(path, next_m, next_v):
     """
     Append a selected variant to a given path.
+    .. deprecated:: 1.0
+        This method is somewhat of a stub.
+        It is likely to be deprecated at no notice in future.
 
     Parameters
     ----------
@@ -209,6 +215,7 @@ def append_path(path, next_m, next_v):
     ------
     Exception
         Raised if `next_m` is None.
+
     """
     #TODO(samstudio8) This is somewhat of a pointless stub, now.
     #TODO(samstudio8) Probably a bit gross as it has side effects on path...
@@ -286,22 +293,12 @@ def generate_path(n_snps, hansel, original_hansel):
         if next_m == None:
             sys.stderr.write("[FAIL] Unable to select next branch from %d to %d\n" % (snp-1, snp))
             return None, None, None
-            current_marg = hansel.get_counts_at(snp)
-            next_m = random.choice(['A', 'C', 'G', 'T'])
-            false_marg_ratio = 1 / (1+current_marg["total"])
 
-            marginals.append(false_marg_ratio)
-            running_prob += log10(false_marg_ratio)
-            current_marg = original_hansel.get_counts_at(snp)
-            false_marg_ratio = 1 / (1+current_marg["total"])
-            running_prob_uw += log10(false_marg_ratio)
-#TODO testing
-        else:
-            selected_edge_weight = hansel.get_marginal_of_at(next_m, snp)
-            marginals.append(selected_edge_weight) #NOTE This isn't a log, as it is used as a ratio later
+        selected_edge_weight = hansel.get_marginal_of_at(next_m, snp)
+        marginals.append(selected_edge_weight) #NOTE This isn't a log, as it is used as a ratio later
 
-            running_prob += log10(selected_edge_weight)
-            running_prob_uw += log10(original_hansel.get_marginal_of_at(next_m, snp))
+        running_prob += log10(selected_edge_weight)
+        running_prob_uw += log10(original_hansel.get_marginal_of_at(next_m, snp))
         append_path(current_path, next_m, next_v)
 
     return current_path, {"unweighted": running_prob_uw, "weighted": running_prob}, min(marginals)

@@ -8,7 +8,6 @@ requirements = [
     "hanselx",
     "pysam",
     "PyVCF",
-    "matplotlib",
 ]
 
 test_requirements = [
@@ -37,7 +36,6 @@ setuptools.setup(
     entry_points = {
         "console_scripts": [
             "gretel=gretel.cmd:main",
-            "gretel-crumbs=gretel.cmd:crumbs",
         ]
     },
 
