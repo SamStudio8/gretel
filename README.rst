@@ -47,7 +47,7 @@ Requirements
     $ pip install numpy hanselx pysam PyVCF
 
 Install
-~~~~~~~
+-------
 ::
 
     $ pip install gretel
