@@ -12,12 +12,12 @@ def main():
     parser.add_argument("vcf")
     parser.add_argument("contig")
     parser.add_argument("-s", "--start", type=int, default=1, help="1-indexed start base position [default: 1]")
-    parser.add_argument("-e", "--end", type=int, default=-1, help="1-indexed end base position [default: contig end]")
+    parser.add_argument("-e", "--end", type=int, default=-1, help="1-indexed end base position [default: reference length]")
 
-    parser.add_argument("-l", "--lorder", type=int, default=0, help="Order of markov chain to predict next nucleotide [default:1]")
+    parser.add_argument("-l", "--lorder", type=int, default=0, help="Order of markov chain to predict next nucleotide [default calculated from read data]")
     parser.add_argument("-p", "--paths", type=int, default=100, help="Maximum number of paths to generate [default:100]")
 
-    parser.add_argument("--master", default=None, help="Master sequence if available (required to generate out.fasta)")
+    parser.add_argument("--master", default=None, help="Master sequence (will be used to fill in homogeneous gaps in haplotypes, otherwise Ns)") #TODO Use something other than N? Should probably be a valid IUPAC
 
     parser.add_argument("--quiet", default=False, action='store_true', help="Don't output anything other than a single summary line.")
     parser.add_argument("--sentinels", default=False, action='store_true', help="Add additional sentinels for read ends [default:False][EXPERIMENTAL]")
@@ -25,6 +25,10 @@ def main():
     parser.add_argument("-@", "--threads", type=int, default=1, help="Number of BAM iterators [default 1]")
 
     ARGS = parser.parse_args()
+
+    if ARGS.end == -1:
+        ARGS.end = util.get_ref_len_from_bam(ARGS.bam, ARGS.contig)
+        sys.stderr.write("[NOTE] Setting end_pos to %d" % ARGS.end)
 
     VCF_h = gretel.process_vcf(ARGS.vcf, ARGS.contig, ARGS.start, ARGS.end)
     BAM_h = gretel.process_bam(VCF_h, ARGS.bam, ARGS.contig, ARGS.start, ARGS.end, ARGS.lorder, ARGS.sentinels, ARGS.threads)
@@ -113,32 +117,29 @@ def main():
 
     # Make some pretty pictures
     dirn = ARGS.out + "/"
+    fasta_out_fh = open(dirn+"out.fasta", "w")
     if ARGS.master:
         master_fa = util.load_fasta(ARGS.master)
         master_seq = master_fa.fetch(master_fa.references[0])
-        fasta_out_fh = open(dirn+"out.fasta", "w")
-        for i, path in enumerate(PATHS):
-            seq = list(master_seq[:])
-            for j, mallele in enumerate(path[1:]):
-                snp_pos_on_master = VCF_h["snp_rev"][j]
-                try:
-                    if mallele == "-":
-                        # It's a deletion, don't print a SNP
-                        seq[snp_pos_on_master-1] = ""
-                    else:
-                        seq[snp_pos_on_master-1] = mallele
-                except IndexError:
-                    print path, len(seq), snp_pos_on_master-1
-                    sys.exit(1)
-            fasta_out_fh.write(">%d__%.2f\n" % (i, PATH_PROBS[i]))
-            fasta_out_fh.write("%s\n" % "".join(seq[ARGS.start-1 : ARGS.end]))
-        fasta_out_fh.close()
     else:
-        fasta_out_fh = open(dirn+"out.fasta", "w")
-        for i, path in enumerate(PATHS):
-            fasta_out_fh.write(">%d__%.2f\n" % (i, PATH_PROBS[i]))
-            fasta_out_fh.write("%s\n" % "".join("".join(path[1:])))
-        fasta_out_fh.close()
+        master_seq = ["N"] * ARGS.end
+
+    for i, path in enumerate(PATHS):
+        seq = list(master_seq[:])
+        for j, mallele in enumerate(path[1:]):
+            snp_pos_on_master = VCF_h["snp_rev"][j]
+            try:
+                if mallele == "-":
+                    # It's a deletion, don't print a SNP
+                    seq[snp_pos_on_master-1] = ""
+                else:
+                    seq[snp_pos_on_master-1] = mallele
+            except IndexError:
+                print path, len(seq), snp_pos_on_master-1
+                sys.exit(1)
+        fasta_out_fh.write(">%d__%.2f\n" % (i, PATH_PROBS[i]))
+        fasta_out_fh.write("%s\n" % "".join(seq[ARGS.start-1 : ARGS.end]))
+    fasta_out_fh.close()
 
     #TODO datetime, n_obs, n_slices, avg_obs_len, L, n_paths, n_avg_loglik
     crumb_file = open(dirn+"gretel.crumbs", "w")

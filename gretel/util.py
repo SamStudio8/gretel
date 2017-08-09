@@ -10,6 +10,29 @@ import multiprocessing, logging
 #mpl = multiprocessing.log_to_stderr()
 #mpl.setLevel(logging.INFO)
 
+def get_ref_len_from_bam(bam_path, target_contig):
+    """
+    Fetch the length of a given reference sequence from a :py:class:`pysam.AlignmentFile`.
+
+    Parameters
+    ----------
+    bam_path : str
+        Path to the BAM alignment
+
+    target_contig : str
+        The name of the contig for which to recover haplotypes.
+
+    Returns
+    -------
+    end_pos : int
+        The 1-indexed genomic position at which to stop considering variants.
+    """
+    bam = pysam.AlignmentFile(bam_path)
+    end = bam.lengths[bam.get_tid(target_contig)]
+    bam.close()
+
+    return end
+
 def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_end_sentinels=False, n_threads=1):
     """
     Load variants observed in a :py:class:`pysam.AlignmentFile` to
@@ -96,6 +119,7 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
         covered_snps = 0
 
         bam = pysam.AlignmentFile(bam_path)
+
         while True:
             work_block = bam_q.get()
             if work_block is None:

@@ -3,7 +3,6 @@ from math import log,log10,exp
 import random
 
 import vcf
-import pysam
 import numpy as np
 
 from hansel import Hansel
