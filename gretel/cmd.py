@@ -33,6 +33,47 @@ def main():
     VCF_h = gretel.process_vcf(ARGS.vcf, ARGS.contig, ARGS.start, ARGS.end)
     BAM_h = gretel.process_bam(VCF_h, ARGS.bam, ARGS.contig, ARGS.start, ARGS.end, ARGS.lorder, ARGS.sentinels, ARGS.threads)
 
+    # Check if there is a gap in the matrix
+    # TODO(samstudio8) Ideally we would do this IN the bam worker threads such
+    #                  that a thread could raise an error and halt the whole
+    #                  process if we already know we'll yield a matrix we cannot
+    #                  actually work with, but this will do for now...
+    for i in range(0, VCF_h["N"]+1):
+        marginal = BAM_h["read_support"].get_counts_at(i)
+
+        if i > 0:
+            snp_rev = VCF_h["snp_rev"][i-1]
+        else:
+            snp_rev = 0
+        if marginal.get("total", 0) == 0:
+            sys.stderr.write('''[FAIL] Unable to recover pairwise evidence concerning SNP #%d at position %d
+       Gretel needs every SNP to appear on a read with at least one other SNP, at least once.
+       There is no read in your data set that bridges SNP #%d with any of its neighbours.
+
+       * If you are trying to run Gretel along an entire contig or genome, please note that
+       this is not the recommended usage for Gretel, as it was intended to uncover the
+       variation in a metahaplome: the set of haplotypes for a specific gene.
+           See our pre-print https://doi.org/10.1101/223404 for more information
+
+       Consider running a prediction tool such as `prokka` on your assembly or reference
+       and using the CDS regions in the GFF for corresponding genes of interest to
+       uncover haplotypes with Gretel instead.
+
+       * If you are already doing this, consider calling for SNPs more aggressively.
+       We use `snpper` (https://github.com/SamStudio8/gretel-test/blob/master/snpper.py)
+       to determine any site in a BAM that has at least one read in disagreement with
+       the reference as a SNP. Although this introduces noise from alignment and sequence
+       error, Gretel is fairly robust. Importantly, this naive calling method will
+       likely close gaps between SNPs and permit recovery.
+
+       * Finally, consider that the gaps are indicative that your reads do not support
+       one or more parts of your assembly or reference. You could try and find or construct
+       a more suitable reference, or reduce the size of the recovery window.
+
+       Sorry :(\n''' % (i, snp_rev, i))
+            sys.exit(1)
+
+
     #print "[META] #CONTIG", ARGS.contig
     #print "[META] #SNPS", VCF_h["N"]
     #print "[META] #READS", BAM_h["N"]

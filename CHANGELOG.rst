@@ -1,6 +1,11 @@
 History
 =======
 
+0.0.81
+------
+* Add warning and advice when an entry in Hansel is missing evidence.
+* Make the 'Unable to select' warning sound much less bad because it is normal.
+
 0.0.8
 -----
 * Docs

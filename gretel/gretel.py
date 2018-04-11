@@ -288,7 +288,9 @@ def generate_path(n_snps, hansel, original_hansel):
                 next_m = symbol
 
         if next_m == None:
-            sys.stderr.write("[FAIL] Unable to select next branch from %d to %d\n" % (snp-1, snp))
+            sys.stderr.write('''[NOTE] Unable to select next branch from SNP %d to %d
+       By design, Gretel will attempt to recover haplotypes until a hole in the graph has been found.
+       Recovery will intentionally terminate now.\n''' % (snp-1, snp))
             return None, None, None
 
         selected_edge_weight = hansel.get_marginal_of_at(next_m, snp)
