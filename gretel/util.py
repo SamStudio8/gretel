@@ -33,7 +33,7 @@ def get_ref_len_from_bam(bam_path, target_contig):
 
     return end
 
-def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_end_sentinels=False, n_threads=1):
+def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_end_sentinels=False, n_threads=1, debug_reads=False, debug_pos=False):
     """
     Load variants observed in a :py:class:`pysam.AlignmentFile` to
     an instance of :py:class:`hansel.hansel.Hansel`.
@@ -82,6 +82,11 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
     hansel = np.frombuffer(Array(ctypes.c_float, 7 * 7 * (vcf_handler["N"]+2) * (vcf_handler["N"]+2), lock=False), dtype=ctypes.c_float)
     hansel = hansel.reshape(7, 7, vcf_handler["N"]+2, vcf_handler["N"]+2)
     hansel.fill(0.0)
+
+    if not debug_reads:
+        debug_reads = set([])
+    if not debug_pos:
+        debug_pos = set([])
 
     import random
     def progress_worker(progress_q, n_workers, slices, total_snps):
@@ -205,6 +210,22 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
                     reads[curr_read_name]["quals"].append(qual)
                     reads[curr_read_name]["refs_1pos"].append(p_col.reference_pos+1)
                     reads[curr_read_name]["read_variants_0pos"].append(p_read.query_position)
+
+
+            for dread in debug_reads:
+                for read_type in [0,1,2]:
+                    r = reads.get((dread+"_"+str(read_type)),None)
+                    if r:
+                        for snp_i, ref_pos in enumerate(r["refs_1pos"]):
+                            print dread, read_type, ref_pos, r["seq"][snp_i]
+                        print "RANK", dread, read_type, r["rank"]
+
+            if debug_pos:
+                for read in reads:
+                    for d_pos in set(reads[read]["refs_1pos"]) & debug_pos:
+                        i = reads[read]["refs_1pos"].index(d_pos)
+                        print read, d_pos, reads[read]["seq"][i]
+
 
             num_reads = len(reads)
             for qi, qname in enumerate(reads):

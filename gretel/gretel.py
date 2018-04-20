@@ -123,7 +123,7 @@ def process_vcf(vcf_path, contig_name, start_pos, end_pos):
         "region": region,
     }
 
-def process_bam(vcf_handler, bam_path, contig_name, start_pos, end_pos, L, use_end_sentinels, n_threads):
+def process_bam(vcf_handler, bam_path, contig_name, start_pos, end_pos, L, use_end_sentinels, n_threads, debug_reads=False, debug_pos=False):
     """
     Initialise a Hansel structure and load variants from a BAM.
 
@@ -175,7 +175,7 @@ def process_bam(vcf_handler, bam_path, contig_name, start_pos, end_pos, L, use_e
     # such that Z[m][n][i][j] == Z[m][n][i + ((j-1)*(j))/2]
 
 
-    meta = util.load_from_bam(bam_path, contig_name, start_pos, end_pos, vcf_handler, use_end_sentinels, n_threads)
+    meta = util.load_from_bam(bam_path, contig_name, start_pos, end_pos, vcf_handler, use_end_sentinels, n_threads, debug_reads=debug_reads, debug_pos=debug_pos)
     hansel = Hansel(meta["hansel"], ['A', 'C', 'G', 'T', 'N', "-", "_"], ['N', "_"], L=L)
 
     if hansel.L == 0:

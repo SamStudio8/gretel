@@ -24,14 +24,29 @@ def main():
     parser.add_argument("-o", "--out", default=".", help="Output directory [default .]")
     parser.add_argument("-@", "--threads", type=int, default=1, help="Number of BAM iterators [default 1]")
 
+    parser.add_argument("--debugreads", type=str, default="", help="A newline delimited list of read names to output debug data when parsing the BAM")
+    parser.add_argument("--debugpos", type=str, default="", help="A newline delimited list of 1-indexed genomic positions to output debug data when parsing the BAM")
+
     ARGS = parser.parse_args()
 
     if ARGS.end == -1:
         ARGS.end = util.get_ref_len_from_bam(ARGS.bam, ARGS.contig)
         sys.stderr.write("[NOTE] Setting end_pos to %d" % ARGS.end)
 
+    debug_reads = set([])
+    if ARGS.debugreads:
+        debug_fofn = open(ARGS.debugreads)
+        for line in debug_fofn:
+            debug_reads.add(line.strip())
+
+    debug_pos = set([])
+    if ARGS.debugpos:
+        debug_fofn = open(ARGS.debugpos)
+        for line in debug_fofn:
+            debug_pos.add(int(line.strip()))
+
     VCF_h = gretel.process_vcf(ARGS.vcf, ARGS.contig, ARGS.start, ARGS.end)
-    BAM_h = gretel.process_bam(VCF_h, ARGS.bam, ARGS.contig, ARGS.start, ARGS.end, ARGS.lorder, ARGS.sentinels, ARGS.threads)
+    BAM_h = gretel.process_bam(VCF_h, ARGS.bam, ARGS.contig, ARGS.start, ARGS.end, ARGS.lorder, ARGS.sentinels, ARGS.threads, debug_reads=debug_reads, debug_pos=debug_pos)
 
     # Check if there is a gap in the matrix
     # TODO(samstudio8) Ideally we would do this IN the bam worker threads such
