@@ -137,7 +137,7 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
                 break
 
             reads = {}
-            for p_col in bam.pileup(reference=target_contig, start=work_block["start"]-1, end=work_block["end"]):
+            for p_col in bam.pileup(reference=target_contig, start=work_block["start"]-1, end=work_block["end"], ignore_overlaps=False, min_base_quality=0):
                 if p_col.reference_pos + 1 > end_pos:
                     # Ignore positions beyond the end_pos
                     break
