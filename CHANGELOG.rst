@@ -1,6 +1,16 @@
 History
 =======
 
+0.0.90
+------
+Resolves a bug whereby SNPs are incorrectly parsed from the BAM if either:
+* its quality score is below 13
+* the read is overlapped by its primary mate
+Well covered data sets need not be overly affected by the additional noise that
+may have been introduced, but the problem is more noticeable with low coverage
+and you may wish to reapply Gretel to affected data. Sorry.
+
+
 0.0.81
 ------
 * Add warning and advice when an entry in Hansel is missing evidence.

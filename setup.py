@@ -16,7 +16,7 @@ test_requirements = [
 
 setuptools.setup(
     name="gretel",
-    version="0.0.81",
+    version="0.0.90",
     url="https://github.com/samstudio8/gretel",
 
     description="An algorithm for recovering potential haplotypes from metagenomes",
