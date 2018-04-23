@@ -52,6 +52,11 @@ Install
 
     $ pip install gretel
 
+Alternatively, Gretel has been packaged for bioconda (Thanks `@johnne 
+<https://github.com/johnne>`_!): ::
+
+    $ conda install -c bioconda gretel
+
 Usage
 -----
 You will require a sorted BAM containing your reads, aligned to some pseudo-reference.
