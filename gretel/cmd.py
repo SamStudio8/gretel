@@ -2,8 +2,8 @@ import argparse
 import numpy as np
 import sys
 
-import gretel
-import util
+from . import gretel
+from . import util
 
 def main():
     """Gretel: A metagenomic haplotyper."""
@@ -110,14 +110,14 @@ def main():
         "total": [],
     }
     if not ARGS.quiet:
-        print "i\tpos\tgap\tA\tC\tG\tT\tN\t-\t_\ttot"
+        print ("i\tpos\tgap\tA\tC\tG\tT\tN\t-\t_\ttot")
         last_rev = 0
         for i in range(0, VCF_h["N"]+1):
             marginal = BAM_h["read_support"].get_counts_at(i)
             snp_rev = 0
             if i > 0:
                 snp_rev = VCF_h["snp_rev"][i-1]
-            print "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d" % (
+            print ("%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d" % (
                 i,
                 snp_rev,
                 snp_rev - last_rev,
@@ -129,7 +129,7 @@ def main():
                 marginal.get("-", 0),
                 marginal.get("_", 0),
                 marginal.get("total", 0),
-            )
+            ))
             all_marginals["A"].append(marginal.get("A", 0))
             all_marginals["C"].append(marginal.get("C", 0))
             all_marginals["G"].append(marginal.get("G", 0))
@@ -191,7 +191,7 @@ def main():
                 else:
                     seq[snp_pos_on_master-1] = mallele
             except IndexError:
-                print path, len(seq), snp_pos_on_master-1
+                print (path, len(seq), snp_pos_on_master-1)
                 sys.exit(1)
         fasta_out_fh.write(">%d__%.2f\n" % (i, PATH_PROBS[i]))
         fasta_out_fh.write("%s\n" % "".join(seq[ARGS.start-1 : ARGS.end]))

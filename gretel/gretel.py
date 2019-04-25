@@ -6,7 +6,7 @@ import vcf
 import numpy as np
 
 from hansel import Hansel
-import util
+from . import util
 
 #TODO Should the denom of the conditional use the unique variants at i-l or i?
 #TODO Util to parse known input and return SNP seq
@@ -98,7 +98,7 @@ def process_vcf(vcf_path, contig_name, start_pos, end_pos):
     """
 
     # Open the VCF
-    vcf_records = vcf.Reader(open(vcf_path))
+    vcf_records = vcf.Reader(filename=vcf_path)
     n_snps = 0
     snp_reverse = {}
     snp_forward = {}

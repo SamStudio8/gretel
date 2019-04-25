@@ -217,14 +217,14 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
                     r = reads.get((dread+"_"+str(read_type)),None)
                     if r:
                         for snp_i, ref_pos in enumerate(r["refs_1pos"]):
-                            print dread, read_type, ref_pos, r["seq"][snp_i]
-                        print "RANK", dread, read_type, r["rank"]
+                            print (dread, read_type, ref_pos, r["seq"][snp_i])
+                        print ("RANK", dread, read_type, r["rank"])
 
             if debug_pos:
                 for read in reads:
                     for d_pos in set(reads[read]["refs_1pos"]) & debug_pos:
                         i = reads[read]["refs_1pos"].index(d_pos)
-                        print read, d_pos, reads[read]["seq"][i]
+                        print (read, d_pos, reads[read]["seq"][i])
 
 
             num_reads = len(reads)
