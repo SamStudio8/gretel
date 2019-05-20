@@ -1,6 +1,7 @@
 import argparse
 import numpy as np
 import sys
+import os
 
 from . import gretel
 from . import util
@@ -18,6 +19,7 @@ def main():
     parser.add_argument("-p", "--paths", type=int, default=100, help="Maximum number of paths to generate [default:100]")
 
     parser.add_argument("--master", default=None, help="Master sequence (will be used to fill in homogeneous gaps in haplotypes, otherwise Ns)") #TODO Use something other than N? Should probably be a valid IUPAC
+    parser.add_argument("--delchar", default="", help="Character to output in haplotype for deletion (eg. -) [default is blank]")
 
     parser.add_argument("--quiet", default=False, action='store_true', help="Don't output anything other than a single summary line.")
     parser.add_argument("--sentinels", default=False, action='store_true', help="Add additional sentinels for read ends [default:False][EXPERIMENTAL]")
@@ -26,6 +28,9 @@ def main():
 
     parser.add_argument("--debugreads", type=str, default="", help="A newline delimited list of read names to output debug data when parsing the BAM")
     parser.add_argument("--debugpos", type=str, default="", help="A newline delimited list of 1-indexed genomic positions to output debug data when parsing the BAM")
+
+    parser.add_argument("--dumpmatrix", type=str, default=None, help="Location to dump the Hansel matrix to disk")
+    parser.add_argument("--dumpsnps", type=str, default=None, help="Location to dump the SNP positions to disk")
 
     ARGS = parser.parse_args()
 
@@ -46,7 +51,34 @@ def main():
             debug_pos.add(int(line.strip()))
 
     VCF_h = gretel.process_vcf(ARGS.vcf, ARGS.contig, ARGS.start, ARGS.end)
+    if ARGS.dumpsnps:
+        snp_fh = open(ARGS.dumpsnps, 'w')
+        for k in sorted(VCF_h["snp_fwd"].keys()):
+            snp_fh.write("%d\t%d\t%d\n" % (VCF_h["snp_fwd"][k]+1, k, k-ARGS.start+1))
+        snp_fh.close()
+
     BAM_h = gretel.process_bam(VCF_h, ARGS.bam, ARGS.contig, ARGS.start, ARGS.end, ARGS.lorder, ARGS.sentinels, ARGS.threads, debug_reads=debug_reads, debug_pos=debug_pos)
+
+    if ARGS.dumpmatrix:
+        #sys.stderr.write("[NOTE] Dumping Hansel matrix to %s\n" % ARGS.dumpmatrix)
+        #np.save(ARGS.dumpmatrix, BAM_h["read_support"])
+
+
+        #TODO Stolen from util, they should be shared.
+        symbols = ['A', 'C', 'G', 'T', 'N', '-', '_']
+        symbols_d = {symbol: i for i, symbol in enumerate(symbols)}
+        def __symbol_num(symbol):
+            #TODO Catch potential KeyError
+            #TODO Generic mechanism for casing (considering non-alphabetically named states, too...)
+            return symbols_d[symbol]
+
+        z = ['A', 'C', 'G', 'T']
+        for a in z:
+            for b in z:
+                p = os.path.join(ARGS.dumpmatrix + '.' + a + '-' + b + '.txt')
+                sys.stderr.write("[NOTE] Dumping (%s>%s) Hansel matrix to %s\n" % (a,b,p))
+                np.savetxt(p, BAM_h["read_support"][__symbol_num(a), __symbol_num(b)], delimiter=',')
+
 
     # Check if there is a gap in the matrix
     # TODO(samstudio8) Ideally we would do this IN the bam worker threads such
@@ -187,7 +219,7 @@ def main():
             try:
                 if mallele == "-":
                     # It's a deletion, don't print a SNP
-                    seq[snp_pos_on_master-1] = ""
+                    seq[snp_pos_on_master-1] = ARGS.delchar
                 else:
                     seq[snp_pos_on_master-1] = mallele
             except IndexError:
