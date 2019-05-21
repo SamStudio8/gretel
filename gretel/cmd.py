@@ -18,7 +18,8 @@ def main():
     parser.add_argument("-l", "--lorder", type=int, default=0, help="Order of markov chain to predict next nucleotide [default calculated from read data]")
     parser.add_argument("-p", "--paths", type=int, default=100, help="Maximum number of paths to generate [default:100]")
 
-    parser.add_argument("--master", default=None, help="Master sequence (will be used to fill in homogeneous gaps in haplotypes, otherwise Ns)") #TODO Use something other than N? Should probably be a valid IUPAC
+    parser.add_argument("--master", default=None, help="Master sequence (will be used to fill in homogeneous gaps in haplotypes, otherwise --gapchar)") #TODO Use something other than N? Should probably be a valid IUPAC
+    parser.add_argument("--gapchar", default="N", help="Character to fill homogeneous gaps in haplotypes if no --master [default N]")
     parser.add_argument("--delchar", default="", help="Character to output in haplotype for deletion (eg. -) [default is blank]")
 
     parser.add_argument("--quiet", default=False, action='store_true', help="Don't output anything other than a single summary line.")
@@ -210,7 +211,7 @@ def main():
         master_fa = util.load_fasta(ARGS.master)
         master_seq = master_fa.fetch(master_fa.references[0])
     else:
-        master_seq = ["N"] * ARGS.end
+        master_seq = [' '] * ARGS.end
 
     for i, path in enumerate(PATHS):
         seq = list(master_seq[:])
@@ -225,8 +226,13 @@ def main():
             except IndexError:
                 print (path, len(seq), snp_pos_on_master-1)
                 sys.exit(1)
+
+        to_write = "".join(seq[ARGS.start-1 : ARGS.end])
+        if not ARGS.master:
+            to_write = to_write.replace(' ', ARGS.gapchar)
+
         fasta_out_fh.write(">%d__%.2f\n" % (i, PATH_PROBS[i]))
-        fasta_out_fh.write("%s\n" % "".join(seq[ARGS.start-1 : ARGS.end]))
+        fasta_out_fh.write("%s\n" % to_write)
     fasta_out_fh.close()
 
     #TODO datetime, n_obs, n_slices, avg_obs_len, L, n_paths, n_avg_loglik
