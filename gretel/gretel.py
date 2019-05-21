@@ -175,8 +175,7 @@ def process_bam(vcf_handler, bam_path, contig_name, start_pos, end_pos, L, use_e
     # such that Z[m][n][i][j] == Z[m][n][i + ((j-1)*(j))/2]
 
 
-    meta = util.load_from_bam(bam_path, contig_name, start_pos, end_pos, vcf_handler, use_end_sentinels, n_threads, debug_reads=debug_reads, debug_pos=debug_pos)
-    hansel = Hansel(meta["hansel"], ['A', 'C', 'G', 'T', 'N', "-", "_"], ['N', "_"], L=L)
+    hansel, meta = util.load_from_bam(bam_path, contig_name, start_pos, end_pos, vcf_handler, use_end_sentinels, n_threads, debug_reads=debug_reads, debug_pos=debug_pos)
 
     if hansel.L == 0:
         hansel.L = meta["L"]

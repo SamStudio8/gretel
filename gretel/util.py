@@ -2,6 +2,7 @@ import pysam
 import numpy as np
 import ctypes
 from math import ceil
+from hansel import Hansel
 
 from multiprocessing import Process, Queue, Array, Value
 import sys
@@ -78,10 +79,10 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
     """
 
     meta = {}
-
-    hansel = np.frombuffer(Array(ctypes.c_float, 7 * 7 * (vcf_handler["N"]+2) * (vcf_handler["N"]+2), lock=False), dtype=ctypes.c_float)
-    hansel = hansel.reshape(7, 7, vcf_handler["N"]+2, vcf_handler["N"]+2)
-    hansel.fill(0.0)
+    hanselx = np.frombuffer(Array(ctypes.c_float, 7 * 7 * (vcf_handler["N"]+2) * (vcf_handler["N"]+2), lock=False), dtype=ctypes.c_float)
+    hanselx = hanselx.reshape(7, 7, vcf_handler["N"]+2, vcf_handler["N"]+2)
+    hanselx.fill(0.0) # do this in hansel?
+    hansel = Hansel(hanselx, ['A', 'C', 'G', 'T', 'N', "-", "_"], ['N', "_"], L=0)
 
     if not debug_reads:
         debug_reads = set([])
@@ -110,14 +111,7 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
         return (slices, total_snps)
 
     def bam_worker(bam_q, progress_q, worker_i):
-        symbols = ['A', 'C', 'G', 'T', 'N', '-', '_']
-        symbols_d = {symbol: i for i, symbol in enumerate(symbols)}
-        def __symbol_num(symbol):
-            #TODO Catch potential KeyError
-            #TODO Generic mechanism for casing (considering non-alphabetically named states, too...)
-            return symbols_d[symbol]
 
-        unsymbols = ['_', 'N']
         worker = worker_i
 
         slices = 0
@@ -260,7 +254,7 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
                         snp_b = support_seq[j]
 
                         # Ignore observations who are from an invalid transition
-                        if snp_a in unsymbols:
+                        if snp_a in ['_', 'N']:
                             continue
 
                         # Sentinel->A
@@ -268,24 +262,34 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
                             # If this is the first position in the support (support_pos == 0)
                             # and rank > 0 (that is, this is not the first SNP)
                             # and SNPs a, b are adjacent
-                            hansel[__symbol_num('_'), __symbol_num(snp_a), 0, 1] += 1
-                            hansel[__symbol_num(snp_a), __symbol_num(snp_b), 1, 2] += 1
+                            hansel.add_observation('_', snp_a, 0, 1)
+                            hansel.add_observation(snp_a, snp_b, 1, 2)
+
+                            #hansel[__symbol_num('_'), __symbol_num(snp_a), 0, 1] += 1
+                            #hansel[__symbol_num(snp_a), __symbol_num(snp_b), 1, 2] += 1
 
                         # B->Sentinel
                         elif (j+rank+1) == vcf_handler["N"] and abs(i-j)==1:
                             # Last observation (abs(i-j)==1),
                             # that ends on the final SNP (j+rank+1 == N)
-                            hansel[__symbol_num(snp_a), __symbol_num(snp_b), vcf_handler["N"]-1, vcf_handler["N"]] += 1
-                            hansel[__symbol_num(snp_b), __symbol_num('_'), vcf_handler["N"], vcf_handler["N"]+1] += 1
+                            hansel.add_observation(snp_a, snp_b, vcf_handler["N"]-1, vcf_handler["N"])
+                            hansel.add_observation(snp_b, '_', vcf_handler["N"], vcf_handler["N"]+1)
+
+                            #hansel[__symbol_num(snp_a), __symbol_num(snp_b), vcf_handler["N"]-1, vcf_handler["N"]] += 1
+                            #hansel[__symbol_num(snp_b), __symbol_num('_'), vcf_handler["N"], vcf_handler["N"]+1] += 1
+
+
 
                         # A regular observation (A->B)
                         else:
-                            hansel[__symbol_num(snp_a), __symbol_num(snp_b), i+rank+1, j+rank+1] += 1
+                            #hansel[__symbol_num(snp_a), __symbol_num(snp_b), i+rank+1, j+rank+1] += 1
+                            hansel.add_observation(snp_a, snp_b, i+rank+1, j+rank+1)
 
                             if use_end_sentinels:
                                 if j==(support_len-1) and abs(i-j)==1:
                                     # The last SNP on a read, needs a sentinel afterward
-                                    hansel[__symbol_num(snp_b), __symbol_num('_'), j+rank+1, j+rank+2] += 1
+                                    #hansel[__symbol_num(snp_b), __symbol_num('_'), j+rank+1, j+rank+2] += 1
+                                    hansel.add_observation(snp_b, '_', j+rank+1, j+rank+2)
 
     bam_queue = Queue()
     progress_queue = Queue()
@@ -326,9 +330,8 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
     for p in processes:
         p.join()
 
-    meta["hansel"] = hansel
     meta["L"] = int(ceil(float(total_covered_snps.value)/n_reads.value))
-    return meta
+    return hansel, meta
 
 def load_fasta(fa_path):
     """
