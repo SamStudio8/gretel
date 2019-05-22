@@ -181,8 +181,7 @@ def process_bam(vcf_handler, bam_path, contig_name, start_pos, end_pos, L, use_e
         hansel.L = meta["L"]
         sys.stderr.write("[NOTE] Setting Gretel.L to %d\n" % hansel.L)
 
-    return {
-        "read_support": hansel,
+    return hansel, {
         "read_support_o": hansel.copy(),
         "meta": meta,
     }
@@ -257,7 +256,7 @@ def generate_path(n_snps, hansel, original_hansel):
 
     running_prob = 0.0
     running_prob_uw = 0.0
-    current_path = ['_'] # start with the dummy
+    current_path = [ hansel.symbols_d['_'] ] # start with the dummy
     marginals = []
 
     # Find path
@@ -277,7 +276,7 @@ def generate_path(n_snps, hansel, original_hansel):
         next_m = None
 
         for symbol in curr_branches:
-            if symbol == "total":
+            if str(symbol) == "total":
                 continue
             if next_m is None:
                 next_v = curr_branches[symbol]

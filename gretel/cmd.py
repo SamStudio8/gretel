@@ -58,13 +58,9 @@ def main():
             snp_fh.write("%d\t%d\t%d\n" % (VCF_h["snp_fwd"][k]+1, k, k-ARGS.start+1))
         snp_fh.close()
 
-    BAM_h = gretel.process_bam(VCF_h, ARGS.bam, ARGS.contig, ARGS.start, ARGS.end, ARGS.lorder, ARGS.sentinels, ARGS.threads, debug_reads=debug_reads, debug_pos=debug_pos)
+    hansel, BAM_h = gretel.process_bam(VCF_h, ARGS.bam, ARGS.contig, ARGS.start, ARGS.end, ARGS.lorder, ARGS.sentinels, ARGS.threads, debug_reads=debug_reads, debug_pos=debug_pos)
 
     if ARGS.dumpmatrix:
-        #sys.stderr.write("[NOTE] Dumping Hansel matrix to %s\n" % ARGS.dumpmatrix)
-        #np.save(ARGS.dumpmatrix, BAM_h["read_support"])
-
-
         #TODO Stolen from util, they should be shared.
         symbols = ['A', 'C', 'G', 'T', 'N', '-', '_']
         symbols_d = {symbol: i for i, symbol in enumerate(symbols)}
@@ -78,7 +74,7 @@ def main():
             for b in z:
                 p = os.path.join(ARGS.dumpmatrix + '.' + a + '-' + b + '.txt')
                 sys.stderr.write("[NOTE] Dumping (%s>%s) Hansel matrix to %s\n" % (a,b,p))
-                np.savetxt(p, BAM_h["read_support"][__symbol_num(a), __symbol_num(b)], delimiter=',')
+                np.savetxt(p, hansel[__symbol_num(a), __symbol_num(b)], delimiter=',')
 
 
     # Check if there is a gap in the matrix
@@ -87,7 +83,7 @@ def main():
     #                  process if we already know we'll yield a matrix we cannot
     #                  actually work with, but this will do for now...
     for i in range(0, VCF_h["N"]+1):
-        marginal = BAM_h["read_support"].get_counts_at(i)
+        marginal = hansel.get_counts_at(i)
 
         if i > 0:
             snp_rev = VCF_h["snp_rev"][i-1]
@@ -132,21 +128,12 @@ def main():
     PATH_FALLS = []
 
     # Spew out exciting information about the SNPs
-    all_marginals = {
-        "A": [],
-        "C": [],
-        "G": [],
-        "T": [],
-        "N": [],
-        "-": [],
-        "_": [],
-        "total": [],
-    }
     if not ARGS.quiet:
         print ("i\tpos\tgap\tA\tC\tG\tT\tN\t-\t_\ttot")
         last_rev = 0
         for i in range(0, VCF_h["N"]+1):
-            marginal = BAM_h["read_support"].get_counts_at(i)
+            marginal = hansel.get_counts_at(i)
+            marginal = {str(x): marginal[x] for x in marginal}
             snp_rev = 0
             if i > 0:
                 snp_rev = VCF_h["snp_rev"][i-1]
@@ -163,16 +150,6 @@ def main():
                 marginal.get("_", 0),
                 marginal.get("total", 0),
             ))
-            all_marginals["A"].append(marginal.get("A", 0))
-            all_marginals["C"].append(marginal.get("C", 0))
-            all_marginals["G"].append(marginal.get("G", 0))
-            all_marginals["T"].append(marginal.get("T", 0))
-            all_marginals["N"].append(marginal.get("N", 0))
-            all_marginals["-"].append(marginal.get("-", 0))
-            all_marginals["_"].append(marginal.get("_", 0))
-            all_marginals["total"].append(
-                marginal.get("total", 0)
-            )
             last_rev = snp_rev
 
 
@@ -180,7 +157,7 @@ def main():
     SPINS = ARGS.paths
     ongoing_mag = 0
     for i in range(0, SPINS):
-        init_path, init_prob, init_min = gretel.generate_path(VCF_h["N"], BAM_h["read_support"], BAM_h["read_support_o"])
+        init_path, init_prob, init_min = gretel.generate_path(VCF_h["N"], hansel, BAM_h["read_support_o"])
         if init_path == None:
             break
         current_path = init_path
@@ -189,7 +166,7 @@ def main():
         if init_min < MIN_REMOVE:
             sys.stderr.write("[RWGT] Ratio %.10f too small, adjusting to %.3f\n" % (init_min, MIN_REMOVE))
             init_min = MIN_REMOVE
-        rw_magnitude = gretel.reweight_hansel_from_path(BAM_h["read_support"], init_path, init_min)
+        rw_magnitude = gretel.reweight_hansel_from_path(hansel, init_path, init_min)
 
         #TODO Horribly inefficient.
         if current_path in PATHS:
@@ -218,7 +195,7 @@ def main():
         for j, mallele in enumerate(path[1:]):
             snp_pos_on_master = VCF_h["snp_rev"][j]
             try:
-                if mallele == "-":
+                if mallele == hansel.symbols_d["-"]:
                     # It's a deletion, don't print a SNP
                     seq[snp_pos_on_master-1] = ARGS.delchar
                 else:
@@ -227,7 +204,8 @@ def main():
                 print (path, len(seq), snp_pos_on_master-1)
                 sys.exit(1)
 
-        to_write = "".join(seq[ARGS.start-1 : ARGS.end])
+        # Coerce HanselSymbols to str
+        to_write = "".join(str(x) for x in seq[ARGS.start-1 : ARGS.end])
         if not ARGS.master:
             to_write = to_write.replace(' ', ARGS.gapchar)
 
@@ -239,10 +217,10 @@ def main():
     crumb_file = open(dirn+"gretel.crumbs", "w")
     crumb_file.write("# %d\t%d\t%d\t%.2f\t%d\t%.2f\t%.2f\t%.2f\n" % (
         VCF_h["N"],
-        BAM_h["read_support"].n_crumbs,
-        BAM_h["read_support"].n_slices,
+        hansel.n_crumbs,
+        hansel.n_slices,
         BAM_h["meta"]["L"],
-        BAM_h["read_support"].L,
+        hansel.L,
         np.mean(PATH_PROBS),
         np.mean(PATH_PROBS_UW),
         np.mean(PATH_FALLS),
