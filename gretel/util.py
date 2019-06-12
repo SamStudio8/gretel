@@ -1,15 +1,10 @@
 import pysam
 import numpy as np
-import ctypes
 from math import ceil
 from hansel import Hansel
 
-from multiprocessing import Process, Queue, Array, Value
+from multiprocessing import Process, Queue, Value
 import sys
-import multiprocessing, logging
-
-#mpl = multiprocessing.log_to_stderr()
-#mpl.setLevel(logging.INFO)
 
 def get_ref_len_from_bam(bam_path, target_contig):
     """
@@ -79,10 +74,7 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
     """
 
     meta = {}
-    hanselx = np.frombuffer(Array(ctypes.c_float, 7 * 7 * (vcf_handler["N"]+2) * (vcf_handler["N"]+2), lock=False), dtype=ctypes.c_float)
-    hanselx = hanselx.reshape(7, 7, vcf_handler["N"]+2, vcf_handler["N"]+2)
-    hanselx.fill(0.0) # do this in hansel?
-    hansel = Hansel(hanselx, ['A', 'C', 'G', 'T', 'N', "-", "_"], ['N', "_"], L=0)
+    hansel = Hansel.init_matrix(['A', 'C', 'G', 'T', 'N', "-", "_"], ['N', "_"], vcf_handler["N"])
 
     if not debug_reads:
         debug_reads = set([])

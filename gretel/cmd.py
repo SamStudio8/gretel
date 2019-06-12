@@ -61,21 +61,7 @@ def main():
     hansel, BAM_h = gretel.process_bam(VCF_h, ARGS.bam, ARGS.contig, ARGS.start, ARGS.end, ARGS.lorder, ARGS.sentinels, ARGS.threads, debug_reads=debug_reads, debug_pos=debug_pos)
 
     if ARGS.dumpmatrix:
-        #TODO Stolen from util, they should be shared.
-        symbols = ['A', 'C', 'G', 'T', 'N', '-', '_']
-        symbols_d = {symbol: i for i, symbol in enumerate(symbols)}
-        def __symbol_num(symbol):
-            #TODO Catch potential KeyError
-            #TODO Generic mechanism for casing (considering non-alphabetically named states, too...)
-            return symbols_d[symbol]
-
-        z = ['A', 'C', 'G', 'T']
-        for a in z:
-            for b in z:
-                p = os.path.join(ARGS.dumpmatrix + '.' + a + '-' + b + '.txt')
-                sys.stderr.write("[NOTE] Dumping (%s>%s) Hansel matrix to %s\n" % (a,b,p))
-                np.savetxt(p, hansel[__symbol_num(a), __symbol_num(b)], delimiter=',')
-
+        hansel.save_hansel_dump(ARGS.dumpmatrix)
 
     # Check if there is a gap in the matrix
     # TODO(samstudio8) Ideally we would do this IN the bam worker threads such
