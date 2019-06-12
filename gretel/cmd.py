@@ -156,7 +156,6 @@ def main():
         if current_path in PATHS:
             continue
         else:
-            ongoing_mag += rw_magnitude
             PATHS.append(current_path)
             PATH_PROBS.append(init_prob["weighted"])
             PATH_PROBS_UW.append(init_prob["unweighted"])
