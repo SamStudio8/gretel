@@ -67,13 +67,9 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
 
     Returns
     -------
-    Metadata : dict{str, any}
-        A dictionary of metadata that may come in useful later.
-        Primarily used to return a list of integers describing the number of
-        variants covered by each read in the provided alignment BAM.
+    Hansel : :py:class:`hansel.hansel.Hansel`
     """
 
-    meta = {}
     hansel = Hansel.init_matrix(['A', 'C', 'G', 'T', 'N', "-", "_"], ['N', "_"], vcf_handler["N"])
 
     if not debug_reads:
@@ -82,7 +78,7 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
         debug_pos = set([])
 
     import random
-    def progress_worker(progress_q, n_workers, slices, total_snps):
+    def progress_worker(progress_q, n_workers, slices, total_snps, crumbs):
         worker_pos = []
         worker_done = []
         for _ in range(0, n_workers):
@@ -95,18 +91,20 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
             if work_block["pos"] is None:
                 worker_done[work_block["worker_i"]] = 1
 
+                crumbs.value += work_block["crumbs"]
                 slices.value += work_block["slices"]
                 total_snps.value += work_block["covered_snps"]
                 sys.stderr.write("%s\n" % ([ worker_pos[i] if status != 1 else None for (i, status) in enumerate(worker_done)]))
             if random.random() < 0.1:
                 sys.stderr.write("%s\n" % ([ worker_pos[i] if status != 1 else None for (i, status) in enumerate(worker_done)]))
-        return (slices, total_snps)
+        return (slices, total_snps, crumbs)
 
     def bam_worker(bam_q, progress_q, worker_i):
 
         worker = worker_i
 
         slices = 0
+        crumbs = 0
         covered_snps = 0
 
         bam = pysam.AlignmentFile(bam_path)
@@ -118,6 +116,7 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
                     "pos": None,
                     "worker_i": worker_i,
                     "slices": slices,
+                    "crumbs": crumbs,
                     "covered_snps": covered_snps,
                 })
                 break
@@ -256,6 +255,7 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
                             # and SNPs a, b are adjacent
                             hansel.add_observation('_', snp_a, 0, 1)
                             hansel.add_observation(snp_a, snp_b, 1, 2)
+                            crumbs += 1
 
                             #hansel[__symbol_num('_'), __symbol_num(snp_a), 0, 1] += 1
                             #hansel[__symbol_num(snp_a), __symbol_num(snp_b), 1, 2] += 1
@@ -266,6 +266,7 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
                             # that ends on the final SNP (j+rank+1 == N)
                             hansel.add_observation(snp_a, snp_b, vcf_handler["N"]-1, vcf_handler["N"])
                             hansel.add_observation(snp_b, '_', vcf_handler["N"], vcf_handler["N"]+1)
+                            crumbs += 1
 
                             #hansel[__symbol_num(snp_a), __symbol_num(snp_b), vcf_handler["N"]-1, vcf_handler["N"]] += 1
                             #hansel[__symbol_num(snp_b), __symbol_num('_'), vcf_handler["N"], vcf_handler["N"]+1] += 1
@@ -276,6 +277,7 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
                         else:
                             #hansel[__symbol_num(snp_a), __symbol_num(snp_b), i+rank+1, j+rank+1] += 1
                             hansel.add_observation(snp_a, snp_b, i+rank+1, j+rank+1)
+                            crumbs += 1
 
                             if use_end_sentinels:
                                 if j==(support_len-1) and abs(i-j)==1:
@@ -306,9 +308,10 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
 
     # ...and a progress process
     n_reads = Value('i', 0)
+    n_observations = Value('i', 0)
     total_covered_snps = Value('i', 0)
     p = Process(target=progress_worker,
-                args=(progress_queue, n_threads, n_reads, total_covered_snps))
+                args=(progress_queue, n_threads, n_reads, total_covered_snps, n_observations))
     processes.append(p)
 
     for p in processes:
@@ -322,8 +325,14 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
     for p in processes:
         p.join()
 
-    meta["L"] = int(ceil(float(total_covered_snps.value)/n_reads.value))
-    return hansel, meta
+
+    hansel.n_slices = n_reads.value
+    hansel.n_crumbs = n_observations.value
+    sys.stderr.write("[NOTE] Loaded %d breadcrumbs from %d bread slices.\n" % (hansel.n_crumbs, hansel.n_slices))
+
+    hansel.L = int(ceil(float(total_covered_snps.value)/n_reads.value))
+    sys.stderr.write("[NOTE] Setting Gretel.L to %d\n" % hansel.L)
+    return hansel
 
 def load_fasta(fa_path):
     """

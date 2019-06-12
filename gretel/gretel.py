@@ -123,69 +123,6 @@ def process_vcf(vcf_path, contig_name, start_pos, end_pos):
         "region": region,
     }
 
-def process_bam(vcf_handler, bam_path, contig_name, start_pos, end_pos, L, use_end_sentinels, n_threads, debug_reads=False, debug_pos=False):
-    """
-    Initialise a Hansel structure and load variants from a BAM.
-
-    Parameters
-    ----------
-    vcf_handler : dict{str, any}
-        Variant metadata, as provided by :py:func:`gretel.gretel.process_vcf`.
-
-    bam_path : str
-        Path to the alignment BAM.
-
-    contig_name : str
-        The name of the contig for which to recover haplotypes.
-
-    start_pos : int
-        The 1-indexed genomic position from which to begin considering variants.
-
-    end_pos : int
-        The 1-indexed genomic position at which to stop considering variants.
-
-    L : int
-        The Gretel `L-parameter`, controlling the number of positions back
-        from the head of the current path (including the head) to consider
-        when calculating conditional probabilities.
-
-    use_end_sentinels : boolean
-        Whether or not to append an additional pairwise observation between
-        the final variant on a read towards a sentinel.
-
-    n_threads : int
-        Number of threads to spawn for reading the BAM
-
-    Returns
-    -------
-    Gretel Metastructure : dict
-        A collection of structures used for the execution of Gretel.
-        The currently used keys are:
-            read_support : :py:class:`hansel.hansel.Hansel`
-                The Hansel structure.
-            read_support_o : :py:class:`hansel.hansel.Hansel`
-                A copy of the Hansel structure stored with the intention of not reweighting its observations.
-            meta : dict{str, any}
-                A dictionary of metadata returned from the BAM parsing, such as
-                a list of the number of variants that each read spans.
-    """
-
-    #NOTE(samstudio8)
-    # Could we optimise for lower triangle by collapsing one of the dimensions
-    # such that Z[m][n][i][j] == Z[m][n][i + ((j-1)*(j))/2]
-
-
-    hansel, meta = util.load_from_bam(bam_path, contig_name, start_pos, end_pos, vcf_handler, use_end_sentinels, n_threads, debug_reads=debug_reads, debug_pos=debug_pos)
-
-    if hansel.L == 0:
-        hansel.L = meta["L"]
-        sys.stderr.write("[NOTE] Setting Gretel.L to %d\n" % hansel.L)
-
-    return hansel, {
-        "read_support_o": hansel.copy(),
-        "meta": meta,
-    }
-
 ## PATH GENERATION ############################################################
 
 def append_path(path, next_m, next_v):
@@ -260,7 +197,7 @@ def generate_path(n_snps, hansel, original_hansel):
     marginals = []
 
     # Find path
-    sys.stderr.write("*** ESTABLISH ***\n")
+    sys.stderr.write("[NOTE] *Establishing next path\n")
     for snp in range(1, n_snps+1):
         #sys.stderr.write("\t*** ***\n")
         #sys.stderr.write("\t[SNP_] SNP %d\n" % snp)

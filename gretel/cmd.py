@@ -23,7 +23,7 @@ def main():
     parser.add_argument("--delchar", default="", help="Character to output in haplotype for deletion (eg. -) [default is blank]")
 
     parser.add_argument("--quiet", default=False, action='store_true', help="Don't output anything other than a single summary line.")
-    parser.add_argument("--sentinels", default=False, action='store_true', help="Add additional sentinels for read ends [default:False][EXPERIMENTAL]")
+    #parser.add_argument("--sentinels", default=False, action='store_true', help="Add additional sentinels for read ends [default:False][EXPERIMENTAL]")
     parser.add_argument("-o", "--out", default=".", help="Output directory [default .]")
     parser.add_argument("-@", "--threads", type=int, default=1, help="Number of BAM iterators [default 1]")
 
@@ -58,7 +58,10 @@ def main():
             snp_fh.write("%d\t%d\t%d\n" % (VCF_h["snp_fwd"][k]+1, k, k-ARGS.start+1))
         snp_fh.close()
 
-    hansel, BAM_h = gretel.process_bam(VCF_h, ARGS.bam, ARGS.contig, ARGS.start, ARGS.end, ARGS.lorder, ARGS.sentinels, ARGS.threads, debug_reads=debug_reads, debug_pos=debug_pos)
+    # Could we optimise for lower triangle by collapsing one of the dimensions
+    # such that Z[m][n][i][j] == Z[m][n][i + ((j-1)*(j))/2]
+    hansel = util.load_from_bam(ARGS.bam, ARGS.contig, ARGS.start, ARGS.end, VCF_h, n_threads=ARGS.threads, debug_reads=debug_reads, debug_pos=debug_pos)
+    original_hansel = hansel.copy()
 
     if ARGS.dumpmatrix:
         hansel.save_hansel_dump(ARGS.dumpmatrix)
@@ -103,11 +106,6 @@ def main():
        Sorry :(\n''' % (i, snp_rev, i))
             sys.exit(1)
 
-
-    #print "[META] #CONTIG", ARGS.contig
-    #print "[META] #SNPS", VCF_h["N"]
-    #print "[META] #READS", BAM_h["N"]
-
     PATHS = []
     PATH_PROBS = []
     PATH_PROBS_UW = []
@@ -143,7 +141,7 @@ def main():
     SPINS = ARGS.paths
     ongoing_mag = 0
     for i in range(0, SPINS):
-        init_path, init_prob, init_min = gretel.generate_path(VCF_h["N"], hansel, BAM_h["read_support_o"])
+        init_path, init_prob, init_min = gretel.generate_path(VCF_h["N"], hansel, original_hansel)
         if init_path == None:
             break
         current_path = init_path
@@ -201,11 +199,10 @@ def main():
 
     #TODO datetime, n_obs, n_slices, avg_obs_len, L, n_paths, n_avg_loglik
     crumb_file = open(dirn+"gretel.crumbs", "w")
-    crumb_file.write("# %d\t%d\t%d\t%.2f\t%d\t%.2f\t%.2f\t%.2f\n" % (
+    crumb_file.write("# %d\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\n" % (
         VCF_h["N"],
         hansel.n_crumbs,
         hansel.n_slices,
-        BAM_h["meta"]["L"],
         hansel.L,
         np.mean(PATH_PROBS),
         np.mean(PATH_PROBS_UW),
