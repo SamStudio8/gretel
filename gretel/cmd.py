@@ -106,10 +106,7 @@ def main():
        Sorry :(\n''' % (i, snp_rev, i))
             sys.exit(1)
 
-    PATHS = []
-    PATH_PROBS = []
-    PATH_PROBS_UW = []
-    PATH_FALLS = []
+    PATHS = {}
 
     # Spew out exciting information about the SNPs
     if not ARGS.quiet:
@@ -153,16 +150,22 @@ def main():
         rw_magnitude = gretel.reweight_hansel_from_path(hansel, init_path, init_min)
 
         #TODO Horribly inefficient.
-        if current_path in PATHS:
-            continue
-        else:
-            PATHS.append(current_path)
-            PATH_PROBS.append(init_prob["weighted"])
-            PATH_PROBS_UW.append(init_prob["unweighted"])
-            PATH_FALLS.append(ongoing_mag)
-            ongoing_mag = 0
-        ongoing_mag += rw_magnitude
-
+        current_path_str = "".join([str(x) for x in current_path])
+        if current_path_str not in PATHS:
+            PATHS[current_path_str] = {
+                "weighted": [],
+                "unweighted": [],
+                "i": [],
+                "i_0": i,
+                "n": 0,
+                "magnitude": 0,
+                "hansel_path": current_path,
+            }
+        PATHS[current_path_str]["n"] += 1
+        PATHS[current_path_str]["i"].append(i)
+        PATHS[current_path_str]["magnitude"] += rw_magnitude
+        PATHS[current_path_str]["weighted"].append(init_prob["weighted"])
+        PATHS[current_path_str]["unweighted"].append(init_prob["unweighted"])
 
     # Make some pretty pictures
     dirn = ARGS.out + "/"
@@ -173,7 +176,11 @@ def main():
     else:
         master_seq = [' '] * ARGS.end
 
-    for i, path in enumerate(PATHS):
+    for p in sorted(PATHS, key=lambda x: PATHS[x]["i_0"]):
+        p = PATHS[p]
+        path = p["hansel_path"]
+        i = p["i_0"]
+
         seq = list(master_seq[:])
         for j, mallele in enumerate(path[1:]):
             snp_pos_on_master = VCF_h["snp_rev"][j]
@@ -192,25 +199,25 @@ def main():
         if not ARGS.master:
             to_write = to_write.replace(' ', ARGS.gapchar)
 
-        fasta_out_fh.write(">%d__%.2f\n" % (i, PATH_PROBS[i]))
+        fasta_out_fh.write(">%d__%.2f\n" % (i, p["weighted"][0])) #TODO weighted or unweighted?
         fasta_out_fh.write("%s\n" % to_write)
     fasta_out_fh.close()
 
     #TODO datetime, n_obs, n_slices, avg_obs_len, L, n_paths, n_avg_loglik
     crumb_file = open(dirn+"gretel.crumbs", "w")
-    crumb_file.write("# %d\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\n" % (
+    crumb_file.write("# %d\t%d\t%d\t%.2f\n" % (
         VCF_h["N"],
         hansel.n_crumbs,
         hansel.n_slices,
         hansel.L,
-        np.mean(PATH_PROBS),
-        np.mean(PATH_PROBS_UW),
-        np.mean(PATH_FALLS),
     ))
-    for p in range(len(PATHS)):
-        crumb_file.write("%d\t%.2f\t%.2f\t%.2f\n" % (
-                p,
-                PATH_PROBS[p],
-                PATH_PROBS_UW[p],
-                PATH_FALLS[p]
+
+    for p in sorted(PATHS, key=lambda x: PATHS[x]["weighted"][0], reverse=True):
+        p = PATHS[p]
+        crumb_file.write("%d\t%d\t%s\t%s\t%.2f\n" % (
+                p["i_0"],
+                p["n"],
+                ",".join(["%.2f" % x for x in p["weighted"]]),
+                ",".join(["%.2f" % x for x in p["unweighted"]]),
+                p["magnitude"],
         ))
