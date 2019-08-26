@@ -5,7 +5,7 @@ import setuptools
 
 requirements = [
     "numpy",
-    "hanselx",
+    "hanselx==0.0.92",
     "pysam",
     "PyVCF",
 ]
