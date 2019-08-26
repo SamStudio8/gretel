@@ -1,8 +1,16 @@
-Gretel
-======
-An algorithm for recovering haplotypes from metagenomes.
-Sister to `Hansel
-<https://github.com/SamStudio8/hansel>`_.
+<div align="center">
+<p align="center">
+    <img src="gretel-logo.png?raw=true?" alt="gretel-logo" width="250">
+</p>
+<h1 align="center">Gretel</h1>
+<h3 align="center">An algorithm for recovering haplotypes from metagenomes. Sister to <a href="https://github.com/SamStudio8/hansel">Hansel</a>.
+</h3>
+<p align="center">
+<a href="https://github.com/samstudio8/gretel/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-orange.svg" alt="License"></a>
+<a href="https://bioconda.github.io/recipes/gretel/README.html"><img src="https://anaconda.org/bioconda/gretel/badges/downloads.svg" alt="bioconda"></a>
+</p>
+</div>
+
 
 What is it?
 -----------
@@ -42,18 +50,17 @@ and misalignment noise.
 
 Requirements
 ------------
-::
+
 
     $ pip install numpy hanselx pysam PyVCF
 
 Install
 -------
-::
+
 
     $ pip install gretel
 
-Alternatively, Gretel has been packaged for bioconda (Thanks `@johnne 
-<https://github.com/johnne>`_!): ::
+Alternatively, Gretel has been packaged for bioconda (Thanks [@johnne!](https://github.com/johnne)):
 
     $ conda install -c bioconda gretel
 
@@ -64,14 +71,24 @@ You can use any sequence as your reference, such as a consensus assembly of the
 metagenomic reads, or a known strain reference (such as HIV-1).
 You must bgzip and tabix your VCF.
 
-::
-
     $ gretel <bam> <vcf.gz> <contig> -s <1-start> -e <1-end> --master <master.fa> -o <outdir>
 
 
-Citation
+Citation (Pre-Print)
 --------
-Paper pending...
+```
+@article {Nicholls223404,
+	author = {Nicholls, Samuel M. and Aubrey, Wayne and Edwards, Arwyn and de Grave, Kurt and Huws, Sharon and Schietgat, Leander and Soares, Andr{\'e} and Creevey, Christopher J. and Clare, Amanda},
+	title = {Computational haplotype recovery and long-read validation identifies novel isoforms of industrially relevant enzymes from natural microbial communities},
+	elocation-id = {223404},
+	year = {2018},
+	doi = {10.1101/223404},
+	publisher = {Cold Spring Harbor Laboratory},
+	URL = {https://www.biorxiv.org/content/early/2018/01/13/223404},
+	eprint = {https://www.biorxiv.org/content/early/2018/01/13/223404.full.pdf},
+	journal = {bioRxiv}
+}
+```
 
 License
 -------
