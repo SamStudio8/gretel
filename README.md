@@ -1,6 +1,6 @@
 <div align="center">
 <p align="center">
-    <img src="gretel-logo.png?raw=true?" alt="gretel-logo" width="250">
+    <img src="gretel-logo.png?raw=true?" alt="gretel-logo" width="200">
 </p>
 <h1 align="center">Gretel</h1>
 <h3 align="center">An algorithm for recovering haplotypes from metagenomes. Sister to <a href="https://github.com/SamStudio8/hansel">Hansel</a>.
