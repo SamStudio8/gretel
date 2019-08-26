@@ -162,10 +162,6 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
                         if LEFTMOST_1pos < work_block["start"]:
                             continue
 
-                    ## Read ends after the end_pos of interest, so clip it
-                    #if RIGHTMOST_1pos > work_block["region_end"]:
-                    #    RIGHTMOST_1pos = work_block["region_end"]
-
                     sequence = None
                     qual = None
                     if p_read.is_del:
@@ -173,6 +169,7 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
                         sequence = "-" * (abs(p_read.indel) + 1)
                         qual = p_read.alignment.query_qualities[p_read.query_position_or_next] * (abs(p_read.indel) + 1)
                     elif p_read.indel > 0:
+                        # p_read.indel peeks to next CIGAR and determines whether the base FOLLOWING this one is an insertion or not
                         sequence = p_read.alignment.query_sequence[p_read.query_position : p_read.query_position + p_read.indel + 1]
                         qual = p_read.alignment.query_qualities[p_read.query_position : p_read.query_position + p_read.indel + 1]
                     else:
@@ -224,8 +221,7 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
                 rank = reads[qname]["rank"]
                 support_len = len(reads[qname]["seq"])
 
-                # TODO Still not really sure how to handle insertions, our matrix is a bit size-inefficient atm
-                support_seq = "".join([b[0] for b in reads[qname]["seq"]])
+                support_seq = "".join([b[0] for b in reads[qname]["seq"]]) # b[0] has the affect of capturing the base before any insertion
                 covered_snps += len(support_seq.replace("N", "").replace("_", ""))
 
                 # For each position in the supporting sequence (that is, each covered SNP)

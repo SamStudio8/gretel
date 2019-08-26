@@ -36,6 +36,7 @@ setuptools.setup(
     entry_points = {
         "console_scripts": [
             "gretel=gretel.cmd:main",
+            "gretel-snpper=gretel.snpper:main",
         ]
     },
 

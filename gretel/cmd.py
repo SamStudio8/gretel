@@ -29,11 +29,20 @@ def main():
 
     parser.add_argument("--debugreads", type=str, default="", help="A newline delimited list of read names to output debug data when parsing the BAM")
     parser.add_argument("--debugpos", type=str, default="", help="A newline delimited list of 1-indexed genomic positions to output debug data when parsing the BAM")
+    parser.add_argument("--debughpos", type=str, default=",", help="A comma delimited list of 1-indexed SNP positions to output debug data when predicting haplotypes")
 
     parser.add_argument("--dumpmatrix", type=str, default=None, help="Location to dump the Hansel matrix to disk")
     parser.add_argument("--dumpsnps", type=str, default=None, help="Location to dump the SNP positions to disk")
 
     ARGS = parser.parse_args()
+
+    debug_hpos = []
+    if ARGS.debughpos:
+        for x in ARGS.debughpos.split(","):
+            try:
+                debug_hpos.append( int(x) )
+            except:
+                pass
 
     if ARGS.end == -1:
         ARGS.end = util.get_ref_len_from_bam(ARGS.bam, ARGS.contig)
@@ -138,7 +147,7 @@ def main():
     SPINS = ARGS.paths
     ongoing_mag = 0
     for i in range(0, SPINS):
-        init_path, init_prob, init_min = gretel.generate_path(VCF_h["N"], hansel, original_hansel)
+        init_path, init_prob, init_min = gretel.generate_path(VCF_h["N"], hansel, original_hansel, debug_hpos=debug_hpos)
         if init_path == None:
             break
         current_path = init_path
@@ -153,8 +162,8 @@ def main():
         current_path_str = "".join([str(x) for x in current_path])
         if current_path_str not in PATHS:
             PATHS[current_path_str] = {
-                "weighted": [],
-                "unweighted": [],
+                "hp_current": [],
+                "hp_original": [],
                 "i": [],
                 "i_0": i,
                 "n": 0,
@@ -164,12 +173,14 @@ def main():
         PATHS[current_path_str]["n"] += 1
         PATHS[current_path_str]["i"].append(i)
         PATHS[current_path_str]["magnitude"] += rw_magnitude
-        PATHS[current_path_str]["weighted"].append(init_prob["weighted"])
-        PATHS[current_path_str]["unweighted"].append(init_prob["unweighted"])
+        PATHS[current_path_str]["hp_current"].append(init_prob["hp_current"])
+        PATHS[current_path_str]["hp_original"].append(init_prob["hp_original"])
 
     # Make some pretty pictures
     dirn = ARGS.out + "/"
     fasta_out_fh = open(dirn+"out.fasta", "w")
+    hfasta_out_fh = open(dirn+"snp.fasta", "w")
+
     if ARGS.master:
         master_fa = util.load_fasta(ARGS.master)
         master_seq = master_fa.fetch(master_fa.references[0])
@@ -199,9 +210,13 @@ def main():
         if not ARGS.master:
             to_write = to_write.replace(' ', ARGS.gapchar)
 
-        fasta_out_fh.write(">%d__%.2f\n" % (i, p["weighted"][0])) #TODO weighted or unweighted?
+        fasta_out_fh.write(">%d__%.2f\n" % (i, p["hp_current"][0])) #TODO hp_current or hp_original?
         fasta_out_fh.write("%s\n" % to_write)
+
+        hfasta_out_fh.write(">%d__%.2f\n" % (i, p["hp_current"][0])) #TODO hp_current or hp_original?
+        hfasta_out_fh.write("%s\n" % "".join([str(x) for x in path[1:]]))
     fasta_out_fh.close()
+    hfasta_out_fh.close()
 
     #TODO datetime, n_obs, n_slices, avg_obs_len, L, n_paths, n_avg_loglik
     crumb_file = open(dirn+"gretel.crumbs", "w")
@@ -212,12 +227,12 @@ def main():
         hansel.L,
     ))
 
-    for p in sorted(PATHS, key=lambda x: PATHS[x]["weighted"][0], reverse=True):
+    for p in sorted(PATHS, key=lambda x: PATHS[x]["hp_current"][0], reverse=True):
         p = PATHS[p]
         crumb_file.write("%d\t%d\t%s\t%s\t%.2f\n" % (
                 p["i_0"],
                 p["n"],
-                ",".join(["%.2f" % x for x in p["weighted"]]),
-                ",".join(["%.2f" % x for x in p["unweighted"]]),
+                ",".join(["%.2f" % x for x in p["hp_current"]]),
+                ",".join(["%.2f" % x for x in p["hp_original"]]),
                 p["magnitude"],
         ))
