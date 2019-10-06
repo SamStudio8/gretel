@@ -2,6 +2,7 @@ import pysam
 import numpy as np
 from math import ceil
 from hansel import Hansel
+import vcf
 
 from multiprocessing import Process, Queue, Value
 import sys
@@ -123,6 +124,7 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
 
             reads = {}
             for p_col in bam.pileup(reference=target_contig, start=work_block["start"]-1, end=work_block["end"], ignore_overlaps=False, min_base_quality=0):
+
                 if p_col.reference_pos + 1 > end_pos:
                     # Ignore positions beyond the end_pos
                     break
@@ -253,9 +255,6 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
                             hansel.add_observation(snp_a, snp_b, 1, 2)
                             crumbs += 1
 
-                            #hansel[__symbol_num('_'), __symbol_num(snp_a), 0, 1] += 1
-                            #hansel[__symbol_num(snp_a), __symbol_num(snp_b), 1, 2] += 1
-
                         # B->Sentinel
                         elif (j+rank+1) == vcf_handler["N"] and abs(i-j)==1:
                             # Last observation (abs(i-j)==1),
@@ -264,21 +263,14 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
                             hansel.add_observation(snp_b, '_', vcf_handler["N"], vcf_handler["N"]+1)
                             crumbs += 1
 
-                            #hansel[__symbol_num(snp_a), __symbol_num(snp_b), vcf_handler["N"]-1, vcf_handler["N"]] += 1
-                            #hansel[__symbol_num(snp_b), __symbol_num('_'), vcf_handler["N"], vcf_handler["N"]+1] += 1
-
-
-
                         # A regular observation (A->B)
                         else:
-                            #hansel[__symbol_num(snp_a), __symbol_num(snp_b), i+rank+1, j+rank+1] += 1
                             hansel.add_observation(snp_a, snp_b, i+rank+1, j+rank+1)
                             crumbs += 1
 
                             if use_end_sentinels:
                                 if j==(support_len-1) and abs(i-j)==1:
                                     # The last SNP on a read, needs a sentinel afterward
-                                    #hansel[__symbol_num(snp_b), __symbol_num('_'), j+rank+1, j+rank+2] += 1
                                     hansel.add_observation(snp_b, '_', j+rank+1, j+rank+2)
 
     bam_queue = Queue()
@@ -287,11 +279,11 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
     # Queue the wokers
     # TODO Evenly divide, but in future, consider the distn
     # TODO Also consider in general block0 has more work to do
-    window_l = int((end_pos - start_pos) / float(n_threads))
+    window_l = round((end_pos - start_pos) / float(n_threads))
     for window_i, window_pos in enumerate(range(start_pos, end_pos+1, window_l)):
         bam_queue.put({
             "start": window_pos,
-            "end": window_pos + window_l,
+            "end": window_pos + window_l - 1, # add -1 to stop end of window colliding with next window
             "i": window_i,
             "region_end": end_pos,
         })
@@ -346,3 +338,64 @@ def load_fasta(fa_path):
     """
     return pysam.FastaFile(fa_path)
 
+
+def process_vcf(vcf_path, contig_name, start_pos, end_pos):
+    """
+    Parse a VCF to extract the genomic positions of called variants.
+
+    Parameters
+    ----------
+    vcf_path : str
+        Path to the VCF file.
+
+    contig_name : str
+        Name of the target contig on which variants were called.
+
+    start_pos : int
+        The 1-indexed genomic position from which to begin considering variants.
+
+    end_pos : int
+        The 1-indexed genomic position at which to stop considering variants.
+
+    Returns
+    -------
+    Gretel Metastructure : dict
+        A collection of structures used for the execution of Gretel.
+        The currently used keys are:
+            N : int
+                The number of observed SNPs
+            snp_fwd : dict{int, int}
+                A reverse lookup from the n'th variant, to its genomic position on the contig
+            snp_rev : dict{int, int}
+                A forward lookup to translate the n'th genomic position to its i'th SNP rank
+            region : list{int}
+                A masked representation of the target contig, positive values are variant positions
+    """
+
+    # Open the VCF
+    fp = open(vcf_path, 'rb') # assumes bgzip and tabix
+    vcf_records = vcf.Reader(fp)
+    n_snps = 0
+    snp_reverse = {}
+    snp_forward = {}
+    region = np.zeros(end_pos + 1, dtype=int)
+    i = 0
+    for record in vcf_records.fetch(contig_name, 0, end_pos):
+        if record.POS < start_pos:
+            continue
+        if record.POS > end_pos:
+            continue
+
+        n_snps += 1
+        region[record.POS] = 1
+        snp_reverse[i] = record.POS
+        snp_forward[record.POS] = i
+        i += 1
+    fp.close()
+
+    return {
+        "N": n_snps,
+        "snp_fwd": snp_forward,
+        "snp_rev": snp_reverse,
+        "region": region,
+    }

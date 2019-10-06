@@ -1,11 +1,30 @@
 History
 =======
 
+0.0.93
+------
+
+* Move `process_vcf` to `util` module. I may drop use of `pyvcf` in future as I don't like the API.
+* Dropped pointless `append_path` stub.
+* Fixed an edge case where reads beginning with a SNP that aligned to the start of a parallel parsing window are counted twice.
+* Added a small test package to help detect future regressions.
+* Added `--version` argument to print program version number.
+* Removed `--lorder` argument as users should not need to select the chain order.
+
+0.0.92
+------
+
+* Adds `--dumpmatrix` and `--dumpsnps` debugging options.
+* Clean up Hansel matrix initialisation.
+* Add `gretel-snpper` command for generating naive VCF.
+* Fix a regression where the `L` parameter of the matrix is incorrectly left unset.
+
 0.0.90
 ------
 Resolves a bug whereby SNPs are incorrectly parsed from the BAM if either:
-* its quality score is below 13
-* the read is overlapped by its primary mate
+    * its quality score is below 13
+    * the read is overlapped by its primary mate
+
 Well covered data sets need not be overly affected by the additional noise that
 may have been introduced, but the problem is more noticeable with low coverage
 and you may wish to reapply Gretel to affected data. Sorry.

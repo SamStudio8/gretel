@@ -6,6 +6,8 @@ import os
 from . import gretel
 from . import util
 
+__version__ = "0.0.93"
+
 def main():
     """Gretel: A metagenomic haplotyper."""
     parser = argparse.ArgumentParser(description="Gretel: A metagenomic haplotyper.")
@@ -15,7 +17,7 @@ def main():
     parser.add_argument("-s", "--start", type=int, default=1, help="1-indexed start base position [default: 1]")
     parser.add_argument("-e", "--end", type=int, default=-1, help="1-indexed end base position [default: reference length]")
 
-    parser.add_argument("-l", "--lorder", type=int, default=0, help="Order of markov chain to predict next nucleotide [default calculated from read data]")
+    #parser.add_argument("-l", "--lorder", type=int, default=0, help="Order of markov chain to predict next nucleotide [default calculated from read data]")
     parser.add_argument("-p", "--paths", type=int, default=100, help="Maximum number of paths to generate [default:100]")
 
     parser.add_argument("--master", default=None, help="Master sequence (will be used to fill in homogeneous gaps in haplotypes, otherwise --gapchar)") #TODO Use something other than N? Should probably be a valid IUPAC
@@ -33,6 +35,8 @@ def main():
 
     parser.add_argument("--dumpmatrix", type=str, default=None, help="Location to dump the Hansel matrix to disk")
     parser.add_argument("--dumpsnps", type=str, default=None, help="Location to dump the SNP positions to disk")
+
+    parser.add_argument("--version", action="version", version="%(prog)s " + __version__)
 
     ARGS = parser.parse_args()
 
@@ -60,7 +64,7 @@ def main():
         for line in debug_fofn:
             debug_pos.add(int(line.strip()))
 
-    VCF_h = gretel.process_vcf(ARGS.vcf, ARGS.contig, ARGS.start, ARGS.end)
+    VCF_h = util.process_vcf(ARGS.vcf, ARGS.contig, ARGS.start, ARGS.end)
     if ARGS.dumpsnps:
         snp_fh = open(ARGS.dumpsnps, 'w')
         for k in sorted(VCF_h["snp_fwd"].keys()):
@@ -76,10 +80,6 @@ def main():
         hansel.save_hansel_dump(ARGS.dumpmatrix)
 
     # Check if there is a gap in the matrix
-    # TODO(samstudio8) Ideally we would do this IN the bam worker threads such
-    #                  that a thread could raise an error and halt the whole
-    #                  process if we already know we'll yield a matrix we cannot
-    #                  actually work with, but this will do for now...
     for i in range(0, VCF_h["N"]+1):
         marginal = hansel.get_counts_at(i)
 
@@ -176,7 +176,7 @@ def main():
         PATHS[current_path_str]["hp_current"].append(init_prob["hp_current"])
         PATHS[current_path_str]["hp_original"].append(init_prob["hp_original"])
 
-    # Make some pretty pictures
+    # Output FASTA
     dirn = ARGS.out + "/"
     fasta_out_fh = open(dirn+"out.fasta", "w")
     hfasta_out_fh = open(dirn+"snp.fasta", "w")

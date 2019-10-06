@@ -1,0 +1,9 @@
+@HD	VN:1.0	SO:coordinate
+@SQ	SN:hoot	LN:20
+@SQ	SN:meow	LN:20
+read1	0	hoot	1	42	10M	*	0	10	AANNNNNNNA	~~~~~~~~~~	AS:i:0	XN:i:0	XM:i:0	XO:i:0	XG:i:0	NM:i:0	MD:Z:5	YT:Z:UU	RG:Z:hoot
+read2	0	hoot	1	42	10M	*	0	10	CCNNNNNNNC	~~~~~~~~~~	AS:i:0	XN:i:0	XM:i:0	XO:i:0	XG:i:0	NM:i:0	MD:Z:5	YT:Z:UU	RG:Z:hoot
+read3	0	hoot	1	42	5M	*	0	5	TTNNN	~~~~~	AS:i:0	XN:i:0	XM:i:0	XO:i:0	XG:i:0	NM:i:0	MD:Z:5	YT:Z:UU	RG:Z:hoot
+read4	0	hoot	1	42	5M	*	0	5	TTNNN	!!!!!	AS:i:0	XN:i:0	XM:i:0	XO:i:0	XG:i:0	NM:i:0	MD:Z:5	YT:Z:UU	RG:Z:hoot
+read5	0	hoot	10	42	11M	*	0	11	GNNNNNNNNNG	~~~~~~~~~~~	AS:i:0	XN:i:0	XM:i:0	XO:i:0	XG:i:0	NM:i:0	MD:Z:5	YT:Z:UU	RG:Z:hoot
+read6	0	meow	1	42	10M	*	0	10	AANNNNNNNA	~~~~~~~~~~	AS:i:0	XN:i:0	XM:i:0	XO:i:0	XG:i:0	NM:i:0	MD:Z:5	YT:Z:UU	RG:Z:hoot

@@ -2,7 +2,6 @@ import sys
 from math import log,log10,exp
 import random
 
-import vcf
 import numpy as np
 
 from hansel import Hansel
@@ -98,100 +97,7 @@ def reweight_hansel_from_path(hansel, path, ratio):
     sys.stderr.write("[RWGT] Ratio %.3f, Removed %.1f\n" % (ratio, size))
     return size
 
-
-## INPUT OUTPUT ###############################################################
-def process_vcf(vcf_path, contig_name, start_pos, end_pos):
-    """
-    Parse a VCF to extract the genomic positions of called variants.
-
-    Parameters
-    ----------
-    vcf_path : str
-        Path to the VCF file.
-
-    contig_name : str
-        Name of the target contig on which variants were called.
-
-    start_pos : int
-        The 1-indexed genomic position from which to begin considering variants.
-
-    end_pos : int
-        The 1-indexed genomic position at which to stop considering variants.
-
-    Returns
-    -------
-    Gretel Metastructure : dict
-        A collection of structures used for the execution of Gretel.
-        The currently used keys are:
-            N : int
-                The number of observed SNPs
-            snp_fwd : dict{int, int}
-                A reverse lookup from the n'th variant, to its genomic position on the contig
-            snp_rev : dict{int, int}
-                A forward lookup to translate the n'th genomic position to its i'th SNP rank
-            region : list{int}
-                A masked representation of the target contig, positive values are variant positions
-    """
-
-    # Open the VCF
-    vcf_records = vcf.Reader(filename=vcf_path)
-    n_snps = 0
-    snp_reverse = {}
-    snp_forward = {}
-    region = np.zeros(end_pos + 1, dtype=int)
-    i = 0
-    for record in vcf_records.fetch(contig_name, 0, end_pos):
-        if record.POS < start_pos:
-            continue
-        if record.POS > end_pos:
-            continue
-
-        n_snps += 1
-        region[record.POS] = 1
-        snp_reverse[i] = record.POS
-        snp_forward[record.POS] = i
-        i += 1
-
-    return {
-        "N": n_snps,
-        "snp_fwd": snp_forward,
-        "snp_rev": snp_reverse,
-        "region": region,
-    }
-
 ## PATH GENERATION ############################################################
-
-def append_path(path, next_m, next_v):
-    """
-    Append a selected variant to a given path.
-    .. deprecated:: 1.0
-        This method is somewhat of a stub.
-        It is likely to be deprecated at no notice in future.
-
-    Parameters
-    ----------
-    path : list{str}
-        The current sequence of variants representing a path (haplotype) in progress.
-
-    next_m : str
-        The symbol to append to the path.
-
-    next_v : float
-        The marginal probability of `next_m` at the current position.
-
-    Raises
-    ------
-    Exception
-        Raised if `next_m` is None.
-
-    """
-    #TODO(samstudio8) This is somewhat of a pointless stub, now.
-    #TODO(samstudio8) Probably a bit gross as it has side effects on path...
-    #TODO(samstudio8) Could probably raise an Exception for any next_m not in hansel.symbols?
-    if next_m is not None:
-        path.append(next_m)
-    else:
-        raise Exception("Cowardly refusing to append None as a nucleotide. Cheerio.")
 
 def generate_path(n_snps, hansel, original_hansel, debug_hpos=None):
     """
@@ -278,7 +184,7 @@ def generate_path(n_snps, hansel, original_hansel, debug_hpos=None):
 
         running_prob += log10(selected_edge_weight)
         running_prob_uw += log10(original_hansel.get_marginal_of_at(next_m, snp))
-        append_path(current_path, next_m, next_v)
+        current_path.append(next_m)
 
     return current_path, {"hp_original": running_prob_uw, "hp_current": running_prob}, min(marginals)
 
