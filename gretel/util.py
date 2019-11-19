@@ -123,13 +123,14 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
                 break
 
             reads = {}
-            for p_col in bam.pileup(reference=target_contig, start=work_block["start"]-1, end=work_block["end"], ignore_overlaps=False, min_base_quality=0):
+            for p_col in bam.pileup(reference=target_contig, start=work_block["start"]-1, stop=work_block["end"], ignore_overlaps=False, min_base_quality=0):
 
                 if p_col.reference_pos + 1 > end_pos:
                     # Ignore positions beyond the end_pos
                     break
 
                 if vcf_handler["region"][p_col.reference_pos+1] != 1:
+                    # Ignore non-SNPs
                     continue
 
                 for p_read in p_col.pileups:
@@ -145,7 +146,7 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
                             pass
 
 
-                    curr_read_name = "%s_%d" % (p_read.alignment.query_name, curr_read_1or2)
+                    curr_read_name = "%s_%s_%d" % (p_read.alignment.query_name, str(p_read.alignment.flag), curr_read_1or2)
 
                     LEFTMOST_1pos = p_read.alignment.reference_start + 1 # Convert 0-based reference_start to 1-based position (to match region array and 1-based VCF)
 
@@ -157,7 +158,6 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
                                 # Read ends before the start_pos
                                 continue
                             LEFTMOST_1pos = start_pos
-                            #continue
                     else:
                         # This read begins before the start of the current (non-0) block
                         # and will have already been covered by the block that preceded it
@@ -184,7 +184,7 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
 
                     if curr_read_name not in reads:
                         reads[curr_read_name] = {
-                            "rank": np.sum(vcf_handler["region"][1 : LEFTMOST_1pos]),
+                            "rank": np.sum(vcf_handler["region"][1 : LEFTMOST_1pos]), # non-inclusive 1pos end
                             "seq": [],
                             "quals": [],
                             "refs_1pos": [],
@@ -380,7 +380,8 @@ def process_vcf(vcf_path, contig_name, start_pos, end_pos):
     snp_forward = {}
     region = np.zeros(end_pos + 1, dtype=int)
     i = 0
-    for record in vcf_records.fetch(contig_name, 0, end_pos):
+    for record in vcf_records.fetch(contig_name, 0, end_pos): # [0, 1end)
+        # record.POS is 1-indexed
         if record.POS < start_pos:
             continue
         if record.POS > end_pos:
