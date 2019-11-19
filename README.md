@@ -78,15 +78,15 @@ Citation (Pre-Print)
 --------
 ```
 @article {Nicholls223404,
-	author = {Nicholls, Samuel M. and Aubrey, Wayne and Edwards, Arwyn and de Grave, Kurt and Huws, Sharon and Schietgat, Leander and Soares, Andr{\'e} and Creevey, Christopher J. and Clare, Amanda},
-	title = {Computational haplotype recovery and long-read validation identifies novel isoforms of industrially relevant enzymes from natural microbial communities},
-	elocation-id = {223404},
-	year = {2018},
-	doi = {10.1101/223404},
-	publisher = {Cold Spring Harbor Laboratory},
-	URL = {https://www.biorxiv.org/content/early/2018/01/13/223404},
-	eprint = {https://www.biorxiv.org/content/early/2018/01/13/223404.full.pdf},
-	journal = {bioRxiv}
+        author = {Nicholls, Samuel M. and Aubrey, Wayne and Edwards, Arwyn and Grave, Kurt de and Huws, Sharon and Schietgat, Leander and Soares, Andr{\'e} and Creevey, Christopher J. and Clare, Amanda},
+        title = {Recovery of gene haplotypes from a metagenome},
+        elocation-id = {223404},
+        year = {2019},
+        doi = {10.1101/223404},
+        publisher = {Cold Spring Harbor Laboratory},
+        URL = {https://www.biorxiv.org/content/early/2019/10/17/223404},
+        eprint = {https://www.biorxiv.org/content/early/2019/10/17/223404.full.pdf},
+        journal = {bioRxiv}
 }
 ```
 
