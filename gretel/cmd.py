@@ -14,8 +14,8 @@ def main():
     parser.add_argument("bam")
     parser.add_argument("vcf")
     parser.add_argument("contig")
-    parser.add_argument("-s", "--start", type=int, default=1, help="1-indexed start base position [default: 1]")
-    parser.add_argument("-e", "--end", type=int, default=-1, help="1-indexed end base position [default: reference length]")
+    parser.add_argument("-s", "--start", type=int, default=1, help="1-indexed included start base position [default: 1]")
+    parser.add_argument("-e", "--end", type=int, default=-1, help="1-indexed inlcuded end base position [default: reference length]")
 
     #parser.add_argument("-l", "--lorder", type=int, default=0, help="Order of markov chain to predict next nucleotide [default calculated from read data]")
     parser.add_argument("-p", "--paths", type=int, default=100, help="Maximum number of paths to generate [default:100]")
@@ -35,6 +35,8 @@ def main():
 
     parser.add_argument("--dumpmatrix", type=str, default=None, help="Location to dump the Hansel matrix to disk")
     parser.add_argument("--dumpsnps", type=str, default=None, help="Location to dump the SNP positions to disk")
+
+    parser.add_argument("--pepper", action="store_true", help="enable a more permissive pileup by setting the pysam pileup stepper to 'all', instead of 'samtools'.\nNote that this will allow improper pairs.")
 
     parser.add_argument("--version", action="version", version="%(prog)s " + __version__)
 
@@ -73,7 +75,7 @@ def main():
 
     # Could we optimise for lower triangle by collapsing one of the dimensions
     # such that Z[m][n][i][j] == Z[m][n][i + ((j-1)*(j))/2]
-    hansel = util.load_from_bam(ARGS.bam, ARGS.contig, ARGS.start, ARGS.end, VCF_h, n_threads=ARGS.threads, debug_reads=debug_reads, debug_pos=debug_pos)
+    hansel = util.load_from_bam(ARGS.bam, ARGS.contig, ARGS.start, ARGS.end, VCF_h, n_threads=ARGS.threads, debug_reads=debug_reads, debug_pos=debug_pos, stepper="all" if args.pepper else "samtools")
     original_hansel = hansel.copy()
 
     if ARGS.dumpmatrix:

@@ -30,7 +30,7 @@ def get_ref_len_from_bam(bam_path, target_contig):
 
     return end
 
-def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_end_sentinels=False, n_threads=1, debug_reads=False, debug_pos=False):
+def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_end_sentinels=False, n_threads=1, debug_reads=False, debug_pos=False, stepper="samtools"):
     """
     Load variants observed in a :py:class:`pysam.AlignmentFile` to
     an instance of :py:class:`hansel.hansel.Hansel`.
@@ -65,6 +65,15 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
 
     n_threads : int, optional(default=1)
         Number of threads to spawn for reading the BAM
+
+    debug_reads : list{str}, optional
+        A list of read names for which to print out debugging information
+
+    debug_pos : list{int}, optional
+        A list of positions for which to print out debugging information
+
+    stepper : str, optional(default=samtools)
+        The pysam pileup stepper to use
 
     Returns
     -------
@@ -124,7 +133,8 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
 
             reads = {}
             dreads = set([])
-            for p_col in bam.pileup(reference=target_contig, start=work_block["start"]-1, stop=work_block["end"], ignore_overlaps=False, min_base_quality=0):
+
+            for p_col in bam.pileup(reference=target_contig, start=work_block["start"]-1, stop=work_block["end"], ignore_overlaps=False, min_base_quality=0, stepper=stepper):
 
                 if p_col.reference_pos + 1 > end_pos:
                     # Ignore positions beyond the end_pos
