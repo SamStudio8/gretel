@@ -75,7 +75,7 @@ def main():
 
     # Could we optimise for lower triangle by collapsing one of the dimensions
     # such that Z[m][n][i][j] == Z[m][n][i + ((j-1)*(j))/2]
-    hansel = util.load_from_bam(ARGS.bam, ARGS.contig, ARGS.start, ARGS.end, VCF_h, n_threads=ARGS.threads, debug_reads=debug_reads, debug_pos=debug_pos, stepper="all" if args.pepper else "samtools")
+    hansel = util.load_from_bam(ARGS.bam, ARGS.contig, ARGS.start, ARGS.end, VCF_h, n_threads=ARGS.threads, debug_reads=debug_reads, debug_pos=debug_pos, stepper="all" if ARGS.pepper else "samtools")
     original_hansel = hansel.copy()
 
     if ARGS.dumpmatrix:
