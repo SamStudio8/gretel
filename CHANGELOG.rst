@@ -1,6 +1,10 @@
 History
 =======
 
+0.0.94
+------
+* Added `--pepper` option to for permissive pileups by overriding the pysam pileup stepper to `all` instead of `samtools`.
+
 0.0.93
 ------
 

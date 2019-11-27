@@ -6,7 +6,7 @@ import os
 from . import gretel
 from . import util
 
-__version__ = "0.0.93"
+__version__ = "0.0.94"
 
 def main():
     """Gretel: A metagenomic haplotyper."""
