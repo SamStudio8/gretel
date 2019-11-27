@@ -123,6 +123,7 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
                 break
 
             reads = {}
+            dreads = set([])
             for p_col in bam.pileup(reference=target_contig, start=work_block["start"]-1, stop=work_block["end"], ignore_overlaps=False, min_base_quality=0):
 
                 if p_col.reference_pos + 1 > end_pos:
@@ -190,19 +191,20 @@ def load_from_bam(bam_path, target_contig, start_pos, end_pos, vcf_handler, use_
                             "refs_1pos": [],
                             "read_variants_0pos": [],
                         }
+                        if p_read.alignment.query_name in debug_reads:
+                            dreads.add(curr_read_name)
                     reads[curr_read_name]["seq"].append(sequence)
                     reads[curr_read_name]["quals"].append(qual)
                     reads[curr_read_name]["refs_1pos"].append(p_col.reference_pos+1)
                     reads[curr_read_name]["read_variants_0pos"].append(p_read.query_position)
 
 
-            for dread in debug_reads:
-                for read_type in [0,1,2]:
-                    r = reads.get((dread+"_"+str(read_type)),None)
-                    if r:
-                        for snp_i, ref_pos in enumerate(r["refs_1pos"]):
-                            print (dread, read_type, ref_pos, r["seq"][snp_i])
-                        print ("RANK", dread, read_type, r["rank"])
+            for dread in sorted(dreads):
+                r = reads[dread]
+                if r:
+                    for snp_i, ref_pos in enumerate(r["refs_1pos"]):
+                        print (dread, ref_pos, r["seq"][snp_i])
+                    print ("RANK", dread, r["rank"])
 
             if debug_pos:
                 for read in reads:
