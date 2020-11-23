@@ -74,21 +74,18 @@ You must bgzip and tabix your VCF.
     $ gretel <bam> <vcf.gz> <contig> -s <1-start> -e <1-end> --master <master.fa> -o <outdir>
 
 
-Citation (Pre-Print)
+Citation
 --------
 ```
-@article {Nicholls223404,
-        author = {Nicholls, Samuel M. and Aubrey, Wayne and Edwards, Arwyn and Grave, Kurt de and Huws, Sharon and Schietgat, Leander and Soares, Andr{\'e} and Creevey, Christopher J. and Clare, Amanda},
-        title = {Recovery of gene haplotypes from a metagenome},
-        elocation-id = {223404},
-        year = {2019},
-        doi = {10.1101/223404},
-        publisher = {Cold Spring Harbor Laboratory},
-        URL = {https://www.biorxiv.org/content/early/2019/10/17/223404},
-        eprint = {https://www.biorxiv.org/content/early/2019/10/17/223404.full.pdf},
-        journal = {bioRxiv}
+@ARTICLE{Nicholls2020-pf,
+  title    = "On the complexity of haplotyping a microbial community",
+  author   = "Nicholls, Samuel M and Aubrey, Wayne and De Grave, Kurt and
+              Schietgat, Leander and Creevey, Christopher J and Clare, Amanda",
+  journal  = "Bioinformatics",
+  year     =  2020
 }
 ```
+[Read more on Twitter](https://twitter.com/samstudio8/status/1329406136592834564)
 
 License
 -------
