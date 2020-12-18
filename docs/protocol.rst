@@ -71,19 +71,17 @@ interesting metadata, as well as a record of each recovered haplotype.
 The first row is a comment containing the following (in order):
 
 * The number of SNPs across the region of interest
-* Unused (currently)
-* Unused (currently)
-* The suggested value of `L` for the `L`'th order Markov chain used to reconstruct haplotypes
+* The number of 'crumbs': paired observations added to the Hansel matrix
+* The number of 'slices': reads with at least one observation added to the Hansel matrix
 * The chosen value of `L` for the `L`'th order Markov chain
-* The average likelihood of the returned haplotypes given the state of the Hansel matrix at the time the haplotypes were each recovered
-* The average likelihood of the returned haplotypes given the state of the Hansel matrix at the time the reads were parsed
-* The average number of observations removed from the Hansel matrix by the reweighting mechanism
 
 The rest of the file contains tab-delimited metadata for each recovered haplotype:
 
 * The iteration number, starting from 0
-* The *weighted* likelihood of the haplotype, given the Hansel matrix at the time the haplotype was recovered
-* The *unweighted* likelihood of the haplotype, given the Hansel matrix at the time the reads were parsed
+* The number of times this haplotype was returned
+* The *weighted* likelihood of the haplotype, given the Hansel matrix at the time the haplotype was recovered (comma-sep for each time the haplotype was returned)
+* The *unweighted* likelihood of the haplotype, given the Hansel matrix at the time the reads were parsed (comma-sep for each time the haplotype was returned)
+* The haplotype magnitude: total number of observations removed from the Hansel matrix by the reweighting mechanism
 
 In practice, we rank with the **weighted** likelihoods to discern the haplotypes most likely to exist in the metagenome.
 One may attempt to use the *unweighted* likelihoods as a means to compare the abundance, or read support, **between the returned haplotypes** (*i.e.* not necessarily the metagenome as a whole).
