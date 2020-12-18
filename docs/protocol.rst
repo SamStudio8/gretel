@@ -13,18 +13,8 @@ and recover haplotypes. The reference itself is of little consequence, though
 dropped reads will lead to evidence to be unavailable to Gretel.
 
 Construction of a *de novo* consensus assembly for a metagenome is left as an exercise
-for the reader. Our lab has traditionally been using `velvet`, but recommendations
-have led me to find `Ray`.
-
-We used `bowtie2` during our experiments. We increased its sensitivity with
-the following parameters to increase alignment rates: ::
-
-    bowtie2 --local -D 20 -R 3 -L 3 -N 1 -p 8 --gbar 1 --mp 3
-
-See the blog post `bowtie2: Relaxed Parameters for Generous Alignments to Metagenomes
-<https://samnicholls.net/2016/12/24/bowtie2-metagenomes/`_ for more information.
-
-Sort and index the alignment.
+for the reader. Align the reads to your assembly (`bowtie2`, `minimap2` etc.).
+Sort and index the alignment BAM.
 
 Variant Calling
 ---------------
