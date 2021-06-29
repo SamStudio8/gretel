@@ -77,12 +77,19 @@ You must bgzip and tabix your VCF.
 Citation
 --------
 ```
-@ARTICLE{Nicholls2020-pf,
-  title    = "On the complexity of haplotyping a microbial community",
-  author   = "Nicholls, Samuel M and Aubrey, Wayne and De Grave, Kurt and
-              Schietgat, Leander and Creevey, Christopher J and Clare, Amanda",
-  journal  = "Bioinformatics",
-  year     =  2020
+@article{10.1093/bioinformatics/btaa977,
+    author = {Nicholls, Samuel M and Aubrey, Wayne and De Grave, Kurt and Schietgat, Leander and Creevey, Christopher J and Clare, Amanda},
+    title = "{On the complexity of haplotyping a microbial community}",
+    journal = {Bioinformatics},
+    volume = {37},
+    number = {10},
+    pages = {1360-1366},
+    year = {2021},
+    month = {01},
+    issn = {1367-4803},
+    doi = {10.1093/bioinformatics/btaa977},
+    url = {https://doi.org/10.1093/bioinformatics/btaa977},
+    eprint = {https://academic.oup.com/bioinformatics/article-pdf/37/10/1360/38663805/btaa977.pdf},
 }
 ```
 [Read more on Twitter](https://twitter.com/samstudio8/status/1329406136592834564)
